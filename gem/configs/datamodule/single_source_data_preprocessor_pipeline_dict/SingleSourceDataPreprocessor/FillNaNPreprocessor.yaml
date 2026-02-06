@@ -1,0 +1,3 @@
+_target_: gem.data.FillNaNPreprocessor
+value: 0.0  # 填充值
+method: null  # null 表示使用 value，可选 "ffill", "bfill" 等

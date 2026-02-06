@@ -1,0 +1,3 @@
+_target_: gem.method.lgb.LightGBMImportanceExtractor
+importance_type: gain
+normalize: true

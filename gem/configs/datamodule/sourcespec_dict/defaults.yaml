@@ -1,0 +1,13 @@
+defaults:
+  - SourceSpec@fac: fac
+  - SourceSpec@ret: ret
+  - SourceSpec@ret_raw: ret_raw
+  - SourceSpec@liquidity: liquidity
+  - SourceSpec@score: score
+  - SourceSpec@bench1: bench1
+  - SourceSpec@bench2: bench2
+  - SourceSpec@bench3: bench3
+  - SourceSpec@bench4: bench4
+  - SourceSpec@bench5: bench5
+  - SourceSpec@bench6: bench6
+

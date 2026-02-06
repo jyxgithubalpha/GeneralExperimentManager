@@ -1,0 +1,5 @@
+_target_: gem.data.SourceSpec
+name: ret
+format: feather
+path: C:/Users/123/data/feather/ret/label1.fea
+# path: /project/model_share/fac_hy/share_1/label_data/label1.fea

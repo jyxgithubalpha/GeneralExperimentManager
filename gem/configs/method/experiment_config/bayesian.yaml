@@ -1,0 +1,19 @@
+_target_: gem.experiment.ExperimentConfig
+name: bayesian
+output_dir: ${hydra:runtime.output_dir}
+state_policy:
+  _target_: gem.experiment.StatePolicyConfig
+  mode: per_split
+n_trials: 1
+trial_timeout: null
+parallel_trials: 1
+seed: 42
+ray_address: null
+num_cpus: null
+num_gpus: null
+use_ray: true
+resource_request:
+  trial_gpus: 0
+  final_train_gpus: 0
+  trial_cpus: 4
+  final_train_cpus: 4

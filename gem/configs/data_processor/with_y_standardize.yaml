@@ -1,0 +1,19 @@
+# DataProcessor 配置 - 同时标准化 X 和 y
+_target_: gem.data.data_processor.DataProcessor
+transforms:
+  - _target_: gem.data.data_processor.FillNaNTransform
+    value: 0.0
+    method: constant
+  - _target_: gem.data.data_processor.WinsorizeTransform
+    target: X
+    lower: 0.01
+    upper: 0.99
+    per_date: true
+  - _target_: gem.data.data_processor.StandardizeTransform
+    target: X
+    eps: 1e-8
+    per_date: true
+  - _target_: gem.data.data_processor.StandardizeTransform
+    target: y
+    eps: 1e-8
+    per_date: true

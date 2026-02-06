@@ -1,0 +1,4 @@
+_target_: gem.method.xgb.XGBoostEvaluator
+metric_names:
+  - pearsonr_ic
+  - pearsonr_icir

@@ -1,0 +1,8 @@
+_target_: gem.data.FeatureAssembler
+dataset_spec:
+  _target_: gem.data.DatasetSpec
+  X_source_list: [fac]
+  y_source_list: [ret]
+  extra_source_list: [liquidity, score, bench1, bench2, bench3, bench4, bench5, bench6]
+  key_cols: [date, code]
+  group_col: [date]

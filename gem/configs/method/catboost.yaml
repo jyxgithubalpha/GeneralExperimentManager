@@ -1,0 +1,9 @@
+defaults:
+  - model: catboost
+  - train_config: catboost
+  - experiment_config: catboost
+  - trainer: catboost
+  - evaluator: catboost
+  - importance_extractor: catboost
+  - tuner: catboost
+  - _self_

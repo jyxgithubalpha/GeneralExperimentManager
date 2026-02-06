@@ -1,0 +1,5 @@
+_target_: gem.data.SourceSpec
+name: liquidity
+format: feather
+path: C:/Users/123/data/feather/liquidity/can_trade_amt1.fea
+# path: /project/model_share/fac_hy/share_1/label_data/can_trade_amt1.fea

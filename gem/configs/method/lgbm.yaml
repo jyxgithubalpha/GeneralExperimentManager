@@ -1,0 +1,9 @@
+defaults:
+  - model: lgbm
+  - train_config: lgbm
+  - experiment_config: lgbm
+  - trainer: lgbm
+  - evaluator: lgbm
+  - importance_extractor: lgbm
+  - tuner: lgbm
+  - _self_

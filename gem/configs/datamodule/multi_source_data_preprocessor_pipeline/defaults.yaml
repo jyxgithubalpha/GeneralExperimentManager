@@ -1,0 +1,5 @@
+defaults:
+  - MultiSourceDataPreprocessor@steps.align: AlignPreprocessor
+  - _self_
+
+_target_: gem.data.MultiSourceDataPreprocessorPipeline

@@ -1,0 +1,4 @@
+_target_: gem.data.AlignPreprocessor
+key_cols: [date, code]
+align_key_train_source_list: [fac, ret, liquidity]
+align_key_eval_source_list: [fac, ret, liquidity, score, benchmark, bench1, bench2, bench3, bench4, bench5, bench6]

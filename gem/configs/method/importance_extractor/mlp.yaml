@@ -1,0 +1,3 @@
+_target_: gem.method.mlp.MLPImportanceExtractor
+importance_type: weight
+normalize: true

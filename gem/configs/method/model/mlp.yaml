@@ -1,0 +1,10 @@
+# MLP model configuration
+_target_: gem.method.mlp.MLPTrainer
+
+# Network architecture
+hidden_dims:
+  - 256
+  - 128
+  - 64
+dropout: 0.1
+batch_norm: true

@@ -1,0 +1,2 @@
+_target_: gem.data.RenameColumnsPreprocessor
+rename_map: {}  # 列重命名映射，如 {"old_name": "new_name", "price": "close_price"}

@@ -1,0 +1,3 @@
+_target_: gem.method.catboost.CatBoostImportanceExtractor
+importance_type: FeatureImportance
+normalize: true

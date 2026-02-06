@@ -1,0 +1,3 @@
+_target_: gem.data.CodeFilterPreprocessor
+codes: null  # null 表示不过滤，或指定股票代码列表如 ["000001", "000002"]
+exclude_codes: null  # null 表示不排除，或指定要排除的股票代码列表

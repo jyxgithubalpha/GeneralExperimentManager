@@ -1,0 +1,3 @@
+_target_: gem.data.ColumnFilterPreprocessor
+keep_cols: null  # null 表示保留所有列，或指定列名列表如 ["close", "volume"]
+key_cols: [date, code]

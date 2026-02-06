@@ -1,0 +1,9 @@
+defaults:
+  - model: xgb
+  - train_config: xgb
+  - experiment_config: xgb
+  - trainer: xgb
+  - evaluator: xgb
+  - importance_extractor: xgb
+  - tuner: xgb
+  - _self_

@@ -1,0 +1,10 @@
+defaults:
+  - splitgenerator: RollingWindowSplitGenerator
+  - datamodule: defaults
+  - method: lgbm
+  - data_processor: defaults
+  - _self_
+
+seed: 42
+
+

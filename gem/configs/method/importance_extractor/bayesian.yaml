@@ -1,0 +1,3 @@
+_target_: gem.method.bayesian.BayesianImportanceExtractor
+importance_type: coefficient
+normalize: true

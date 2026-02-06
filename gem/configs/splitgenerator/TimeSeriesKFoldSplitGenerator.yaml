@@ -1,0 +1,7 @@
+_target_: gem.data.TimeSeriesKFoldSplitGenerator
+test_date_start: 20230101
+test_date_end: 20241231
+train_val_date_start: 20220101
+pretrain_date_start: null
+n_folds: 5
+gap: 0

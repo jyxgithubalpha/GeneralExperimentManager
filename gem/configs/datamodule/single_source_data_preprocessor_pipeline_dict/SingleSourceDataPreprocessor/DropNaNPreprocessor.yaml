@@ -1,0 +1,3 @@
+_target_: gem.data.DropNaNPreprocessor
+subset: null  # null 表示检查所有列
+how: any  # any 或 all

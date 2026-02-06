@@ -1,0 +1,2 @@
+_target_: gem.data.DTypePreprocessor
+dtype_map: {}  # 数据类型映射，如 {"date": "int32", "close": "float32", "volume": "int64"}

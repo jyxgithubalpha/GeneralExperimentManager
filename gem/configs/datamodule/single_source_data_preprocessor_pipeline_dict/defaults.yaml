@@ -1,0 +1,50 @@
+defaults:
+  - SingleSourceDataPreprocessor@fac.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@ret.steps.dropnan: DropNaNPreprocessor
+  - SingleSourceDataPreprocessor@ret_raw.steps.dropnan: DropNaNPreprocessor
+  - SingleSourceDataPreprocessor@liquidity.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@score.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@benchmark.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench1.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench2.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench3.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench4.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench5.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench6.steps.fillnan: FillNaNPreprocessor
+  - _self_
+
+fac:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+ret:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+ret_raw:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+liquidity:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+score:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+benchmark:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+bench1:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+bench2:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+bench3:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+bench4:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+bench5:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
+
+bench6:
+  _target_: gem.data.SingleSourceDataPreprocessorPipeline
