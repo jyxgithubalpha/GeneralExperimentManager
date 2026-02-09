@@ -2,7 +2,7 @@
 Hook系统 - 扩展能力
 """
 
-from __future__ import annotations
+
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from ..method.training_dataclasses import EvalResult, FitResult
 from ..data.data_dataclasses import SplitSpec
@@ -84,14 +84,14 @@ class FeatureImportanceHook(Hook):
         importance = model.feature_importance(importance_type=self.importance_type)
         feature_names = model.feature_name()
         
-        df = pd.DataFrame({
+        df = pl.DataFrame({
             "feature": feature_names,
             "importance": importance
-        }).sort_values("importance", ascending=False)
+        }).sort("importance", descending=True)
         
         ctx.fit_result.feature_importance = df
         path = ctx.store.get_artifact_path(ctx.split_spec.split_id, "feature_importance.csv")
-        df.to_csv(path, index=False)
+        df.write_csv(path)
 
 
 class SavePredictionsHook(Hook):
@@ -141,4 +141,5 @@ class HookManager:
                 print(f"Hook '{hook.name}' failed: {e}")
     
     def clear(self) -> None:
-        self._hooks = {e: [] for e in HookEvent}
+        for event in HookEvent:
+            self._hooks[event] = []

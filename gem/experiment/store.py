@@ -2,14 +2,14 @@
 Store - Artifact存储管理
 """
 
-from __future__ import annotations
+
 
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import pandas as pd
+import polars as pl
 
 
 class Store:
@@ -49,8 +49,8 @@ class Store:
         with open(path, 'w') as f:
             json.dump(results, f, indent=2, default=str)
     
-    def load_importance(self, split_id: int) -> Optional[pd.DataFrame]:
+    def load_importance(self, split_id: int) -> Optional[pl.DataFrame]:
         path = self.get_artifact_path(split_id, "feature_importance.csv")
         if path.exists():
-            return pd.read_csv(path)
+            return pl.read_csv(path)
         return None

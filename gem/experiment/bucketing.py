@@ -2,8 +2,6 @@
 Bucketing - Bucket 管理和辅助函数
 """
 
-from __future__ import annotations
-
 from typing import Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:

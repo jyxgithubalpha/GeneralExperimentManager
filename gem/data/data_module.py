@@ -37,5 +37,6 @@ class DataModule:
         if self.multi_source_data_preprocessor_pipeline is not None:
             source_dict = self.multi_source_data_preprocessor_pipeline.fit_transform(source_dict)
         
-        return self.global_data_assembler.assemble(source_dict)
+        global_store = GlobalStore(self.global_data_assembler.assemble(source_dict))
+        return global_store
     

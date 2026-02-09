@@ -1,7 +1,7 @@
 """
 LightGBMTrainer - LightGBM 模型训练器
 """
-from __future__ import annotations
+
 
 import time
 from typing import Optional, TYPE_CHECKING
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..training_dataclasses import FitResult, TrainConfig
 
 from ..base import BaseTrainer
-from ...data.data_adapter import LightGBMAdapter
+from .lgb_adapter import LightGBMAdapter
 from ...utils.feval import FevalAdapterFactory
 from ...utils.objectives import ObjectiveFactory
 

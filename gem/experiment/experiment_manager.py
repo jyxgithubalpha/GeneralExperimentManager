@@ -11,7 +11,7 @@ ExperimentManager.run() 工作步骤:
 2. splitspec_list, dr_start, dr_end = split_generator.generate(...)
 3. global_store = datamodule.prepare_global_store(dr_start, dr_end, base_spec)
 4. global_ref = ray.put(global_store)
-5. 构造 tasks = [SplitTask(...)] 并按 test_start 排序
+5. 构建 tasks = [SplitTask(...)] 并按 test_start 排序
 6. 初始化 state_ref = ray.put(init_state)
 7. 按 state_policy 构建 DAG 并执行
 8. 聚合 summary、写全局报告
@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from hydra.core.hydra_config import HydraConfig
 
 from ..data.data_module import DataModule
@@ -353,11 +353,11 @@ class ExperimentManager:
                 row.update(result.metrics)
             rows.append(row)
         
-        df = pd.DataFrame(rows).sort_values("split_id")
+        df = pl.DataFrame(rows).sort("split_id")
         
         # Save CSV
         csv_path = output_dir / "results_summary.csv"
-        df.to_csv(csv_path, index=False)
+        df.write_csv(csv_path)
         print(f"  - Saved: {csv_path}")
         
         # Save JSON config
@@ -378,32 +378,3 @@ class ExperimentManager:
         n_skipped = sum(1 for r in self._results.values() if r.skipped)
         n_success = len(self._results) - n_skipped
         print(f"\n  Splits: {n_success} success, {n_skipped} skipped")
-        
-        metric_cols = [c for c in df.columns if c not in ("split_id", "skipped", "skip_reason")]
-        if metric_cols:
-            print("\n  Metrics Summary:")
-            for col in metric_cols[:5]:
-                if col in df.columns:
-                    valid_vals = df[col].dropna()
-                    if len(valid_vals) > 0:
-                        mean_val = valid_vals.mean()
-                        std_val = valid_vals.std()
-                        print(f"    {col}: {mean_val:.4f} ± {std_val:.4f}")
-    
-    @property
-    def results(self) -> Dict[int, SplitResult]:
-        return self._results
-    
-    @property
-    def global_store(self) -> Optional[GlobalStore]:
-        return self._global_store
-    
-    @property
-    def splitspec_list(self) -> Optional[List[SplitSpec]]:
-        return self._splitspec_list
-    
-    @property
-    def feature_names(self) -> Optional[List[str]]:
-        if self._global_store:
-            return self._global_store.feature_name_list
-        return None

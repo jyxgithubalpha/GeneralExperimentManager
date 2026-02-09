@@ -1,43 +1,21 @@
 """
-StatePolicy - 控制 split 串/并行与更新频率
+StatePolicy - 控制 split 的并行与更新频率
 
 此模块现在是一个兼容层，从 policies 子模块重新导出所有类。
 """
 
-from __future__ import annotations
+
 
 from typing import List, Optional, TYPE_CHECKING
 
 import numpy as np
 
 from .state_dataclasses import SplitResult, RollingState, StatePolicyMode
-
-# 从 policies 子模块导入
-from .policies import (
-    StatePolicy,
-    EMAStatePolicy,
-    IndustryPreferencePolicy,
-    StatePolicyFactory,
-    StateUpdater,
-)
 from .policies.base import NoStatePolicy
-
-# 从 bucketing 导入
-from .bucketing import (
-    quarter_bucket_fn,
-    month_bucket_fn,
-    BucketManager,
-)
 
 if TYPE_CHECKING:
     from .experiment_manager import StatePolicyConfig
 
-
-# =============================================================================
-# 便捷函数
-# =============================================================================
-# 3. EMAStatePolicy - EMA 更新策略
-# =============================================================================
 
 class EMAStatePolicy(StatePolicy):
     """
@@ -113,7 +91,7 @@ class EMAStatePolicy(StatePolicy):
         self,
         results: List[SplitResult],
     ) -> np.ndarray:
-        """聚合 bucket 内的重要性 (均值)"""
+        """聚合 bucket 内的重要性(均值)"""
         if not results:
             return np.array([])
         
@@ -161,10 +139,6 @@ class EMAStatePolicy(StatePolicy):
         
         return new_state
 
-
-# =============================================================================
-# 4. IndustryPreferencePolicy - 行业偏好策略
-# =============================================================================
 
 class IndustryPreferencePolicy(StatePolicy):
     """
@@ -223,10 +197,6 @@ class IndustryPreferencePolicy(StatePolicy):
         )
 
 
-# =============================================================================
-# 5. StatePolicyFactory - 策略工厂
-# =============================================================================
-
 class StatePolicyFactory:
     """状态策略工厂"""
     
@@ -252,10 +222,6 @@ class StatePolicyFactory:
         else:
             return NoStatePolicy()
 
-
-# =============================================================================
-# 6. BucketManager - Bucket 管理
-# =============================================================================
 
 class BucketManager:
     """
@@ -345,17 +311,13 @@ class BucketManager:
             return [splitspecs]
 
 
-# =============================================================================
-# 7. StateUpdater - 统一状态更新器
-# =============================================================================
-
 class StateUpdater:
     """
     统一状态更新器
     
     维护 RollingState 中的:
-    - data_weight_state: 数据加权状态 (feature/industry EMA)
-    - tuning_state: 调参状态 (last_best_params, history)
+    - data_weight_state: 数据加权状态(feature/industry EMA)
+    - tuning_state: 调参状态(last_best_params, history)
     
     支持 none/per_split/bucket 三种模式
     """
@@ -388,7 +350,7 @@ class StateUpdater:
         Args:
             prev_state: 前一状态
             split_result: Split 结果
-            best_params: 最佳参数 (用于更新 tuning_state)
+            best_params: 最佳参数(用于更新 tuning_state)
             best_objective: 最佳目标值
             
         Returns:
@@ -527,20 +489,16 @@ class StateUpdater:
         return new_state
 
 
-# =============================================================================
-# 8. 便捷函数
-# =============================================================================
-
 def update_state(
     prev_state: Optional[RollingState],
     split_result: SplitResult,
     config: StatePolicyConfig,
 ) -> RollingState:
     """
-    更新状态 (便捷函数)
+    更新状态(便捷函数)
     
     Args:
-        prev_state: 前一状态 (可为 None)
+        prev_state: 前一状态(可为 None)
         split_result: Split 结果
         config: 策略配置
         
@@ -571,7 +529,7 @@ def update_state_from_bucket_results(
     config: StatePolicyConfig,
 ) -> RollingState:
     """
-    从 bucket 结果更新状态 (便捷函数)
+    从 bucket 结果更新状态(便捷函数)
     """
     if prev_state is None:
         prev_state = RollingState()

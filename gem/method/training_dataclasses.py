@@ -2,14 +2,14 @@
 训练相关的数据类
 """
 
-from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 
 @dataclass
@@ -46,14 +46,14 @@ class FitResult:
     params: Dict[str, Any]
     seed: int
     train_time: float = 0.0
-    feature_importance: Optional[pd.DataFrame] = None
+    feature_importance: Optional[pl.DataFrame] = None
 
 
 @dataclass 
 class EvalResult:
     """评估结果"""
     metrics: Dict[str, float]
-    series: Dict[str, pd.Series] = field(default_factory=dict)
+    series: Dict[str, pl.Series] = field(default_factory=dict)
     predictions: Optional[np.ndarray] = None
 
 
@@ -67,7 +67,7 @@ class MethodOutput:
         metrics_search: 搜索阶段指标
         metrics_eval: 评估阶段指标
         importance_vector: 特征重要性向量 (与当前 feature_names 对齐)
-        feature_names_hash: 特征名哈希 (防错位)
+        feature_names_hash: 特征名哈希 (防错)
         aux_state_delta: 辅助状态增量 (行业偏好等)
         model_artifacts: 模型产物路径
     """

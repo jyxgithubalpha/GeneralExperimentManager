@@ -1,8 +1,6 @@
 """
-状态管理相关的数据类
+状态管理相关的数据结构定义
 """
-
-from __future__ import annotations
 
 import hashlib
 import pickle
@@ -13,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 if TYPE_CHECKING:
     from ..data.data_dataclasses import SplitSpec
@@ -24,18 +22,16 @@ class StatePolicyMode(Enum):
     PER_SPLIT = "per_split" # 严格串行，每个 split 后更新状态
     BUCKET = "bucket"       # Bucket 内并行，Bucket 间串行
 
-
 @dataclass
 class StatePolicyConfig:
     """
-    状态策略配置
-    
+    状态策略配置    
     Attributes:
         mode: 策略模式
         bucket_fn: Bucket 分组函数
         ema_alpha: EMA 平滑系数
         importance_topk: 只保留 top-k 特征
-        normalize_importance: 是否归一化重要性
+        normalize_importance: 是否归一化重要性    
     """
     mode: StatePolicyMode = StatePolicyMode.NONE
     bucket_fn: Optional[Callable[[SplitSpec], str]] = None
@@ -47,8 +43,8 @@ class StatePolicyConfig:
 @dataclass
 class ResourceRequest:
     """资源请求"""
-    trial_gpus: float = 1.0  # 每个 trial 的 GPU 数
-    final_train_gpus: float = 1.0  # 最终训练的 GPU 数
+    trial_gpus: float = 1.0  # 每个 trial 的 GPU 数量
+    final_train_gpus: float = 1.0  # 最终训练的 GPU 数量
     trial_cpus: float = 1.0
     final_train_cpus: float = 1.0
 
@@ -75,8 +71,7 @@ class ExperimentConfig:
 @dataclass
 class SplitTask:
     """
-    Split 任务 - ExperimentManager 构造
-    
+    Split 任务 - ExperimentManager 构建
     Attributes:
         split_id: Split ID
         splitspec: Split 规格
@@ -93,8 +88,7 @@ class SplitTask:
 @dataclass
 class SplitResult:
     """
-    Split 结果 - 单次 split 训练的结果
-    
+    Split 结果 - 单次 split 训练的结果    
     Attributes:
         split_id: Split 标识
         importance_vector: 特征重要性向量
@@ -123,11 +117,11 @@ class DataWeightState:
     数据加权状态 - 用于 DataProcessor
     
     Attributes:
-        feature_weights: 特征权重 (从 importance EMA 更新)
+        feature_weights: 特征权重 (通过 importance EMA 更新)
         asset_weights: 股票权重 {code: weight}
         industry_weights: 行业权重 {industry: weight}
         time_weights: 时间权重 {date: weight}
-        feature_names_hash: 特征名哈希 (防错位)
+        feature_names_hash: 特征名哈希(防错)
     """
     feature_weights: Optional[np.ndarray] = None
     asset_weights: Optional[Dict[str, float]] = None
@@ -137,8 +131,8 @@ class DataWeightState:
     
     def get_sample_weight(
         self,
-        keys: pd.DataFrame,
-        group: Optional[pd.DataFrame] = None,
+        keys: pl.DataFrame,
+        group: Optional[pl.DataFrame] = None,
         industry_col: str = "industry",
     ) -> np.ndarray:
         """
@@ -146,25 +140,25 @@ class DataWeightState:
         
         Args:
             keys: 主键 DataFrame，包含 date, code
-            group: 分组 DataFrame，包含 industry 等
+            group: 分组 DataFrame，包含 industry
             industry_col: 行业列名
             
         Returns:
             样本权重数组 [n_samples]
         """
-        n = len(keys)
+        n = keys.height
         weights = np.ones(n, dtype=np.float32)
         
         # 应用资产权重
         if self.asset_weights is not None:
-            codes = keys["code"].values
+            codes = keys["code"].to_numpy()
             for i, code in enumerate(codes):
                 if code in self.asset_weights:
                     weights[i] *= self.asset_weights[code]
         
         # 应用时间权重
         if self.time_weights is not None:
-            dates = keys["date"].values
+            dates = keys["date"].to_numpy()
             for i, d in enumerate(dates):
                 if d in self.time_weights:
                     weights[i] *= self.time_weights[d]
@@ -172,7 +166,7 @@ class DataWeightState:
         # 应用行业权重
         if self.industry_weights is not None and group is not None:
             if industry_col in group.columns:
-                industries = group[industry_col].values
+                industries = group[industry_col].to_numpy()
                 for i, ind in enumerate(industries):
                     if ind in self.industry_weights:
                         weights[i] *= self.industry_weights[ind]
@@ -186,9 +180,9 @@ class TuningState:
     调参状态 - 用于超参搜索优化
     
     Attributes:
-        last_best_params: 上一 split 的最佳参数
-        params_history: 历史最佳参数列表
-        objective_history: 历史最佳目标值
+        last_best_params: 上一 split 的最佳参数        
+        params_history: 历史最佳参数        
+        objective_history: 历史最佳目标值        
         search_space_shrink_ratio: 搜索空间收缩比例
     """
     last_best_params: Optional[Dict[str, Any]] = None
@@ -237,15 +231,14 @@ class TuningState:
 @dataclass
 class RollingState:
     """
-    滚动状态 - split 间传递的状态
-    
+    滚动状态 - split 间传递的状态    
     Attributes:
         importance_ema: 特征重要性的 EMA
-        feature_names_hash: 特征名哈希 (防错位)
+        feature_names_hash: 特征名哈希(防错)
         industry_preference: 行业偏好权重
         split_history: 历史 split 的摘要
-        data_weight_state: 数据加权状态 (用于 DataProcessor)
-        tuning_state: 调参状态 (用于 Tuner)
+        data_weight_state: 数据加权状态(用于 DataProcessor)
+        tuning_state: 调参状态(用于 Tuner)
         metadata: 额外元数据
     """
     importance_ema: Optional[np.ndarray] = None

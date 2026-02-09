@@ -1,5 +1,5 @@
 """
-核心数据结构定义 - 剩余的通用数据类
+核心数据结构定义 - 剩余的通用数据结构
 
 包含:
 - ProcessedViews: DataProcessor 处理后的视图
@@ -12,14 +12,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 
 
 @dataclass
@@ -60,7 +59,7 @@ class DatasetSpec:
 
 @dataclass
 class GlobalStore:
-    keys: pd.DataFrame
+    keys: pl.DataFrame
     X_full: np.ndarray
     y_full: np.ndarray
     
@@ -69,31 +68,31 @@ class GlobalStore:
     date_col: str = "date"
     code_col: str = "code"
     
-    extra: Optional[pd.DataFrame] = None
+    extra: Optional[pl.DataFrame] = None
     
     _date_to_indices: Optional[Dict[int, np.ndarray]] = field(default=None, init=False)
     
     def __post_init__(self):
-        """数据一致性检查和索引预计算"""
-        n_samples = len(self.keys)
+        """数据一致性检查和索引预计"""
+        n_samples = self.keys.height
         assert self.X_full.shape[0] == n_samples, "X_full 行数不匹配"
         assert self.y_full.shape[0] == n_samples, "y_full 行数不匹配"
         assert self.X_full.shape[1] == len(self.feature_name_list), "特征名数量不匹配"
         
-        assert self.date_col in self.keys.columns, f"缺少日期列: {self.date_col}"
-        assert self.code_col in self.keys.columns, f"缺少代码列: {self.code_col}"
+        assert self.date_col in self.keys.columns, f"缺少日期列 {self.date_col}"
+        assert self.code_col in self.keys.columns, f"缺少代码列 {self.code_col}"
         
         self._build_date_index()
     
     def _build_date_index(self):
         """预计算日期到行索引的映射"""
         self._date_to_indices = {}
-        for date in self.keys[self.date_col].unique():
-            mask = self.keys[self.date_col] == date
-            self._date_to_indices[date] = np.where(mask)[0]
+        date_arr = self.keys[self.date_col].to_numpy()
+        for date in np.unique(date_arr):
+            self._date_to_indices[date] = np.where(date_arr == date)[0]
     
     def get_indices_by_dates(self, dates: List[int]) -> np.ndarray:
-        """根据日期列表获取行索引 - O(1) 复杂度"""
+        """根据日期列表获取行索引- O(1) 复杂度"""
         indices_list = []
         for date in dates:
             if date in self._date_to_indices:
@@ -106,15 +105,15 @@ class GlobalStore:
             indices=indices,
             X=self.X_full[indices],
             y=self.y_full[indices],
-            keys=self.keys.iloc[indices].reset_index(drop=True),
+            keys=self.keys[indices.tolist()],
             feature_names=self.feature_name_list.copy(),
             label_names=self.label_name_list.copy(),
-            extra=self.extra.iloc[indices].reset_index(drop=True) if self.extra is not None else None,
+            extra=self.extra[indices.tolist()] if self.extra is not None else None,
         )
     
     @property
     def n_samples(self) -> int:
-        return len(self.keys)
+        return self.keys.height
     
     @property
     def n_features(self) -> int:
@@ -123,7 +122,7 @@ class GlobalStore:
     @property
     def dates(self) -> np.ndarray:
         """获取所有唯一日期"""
-        return self.keys[self.date_col].unique()
+        return self.keys[self.date_col].unique().to_numpy()
     
     def get_feature_names_hash(self) -> str:
         """获取特征名哈希，防止错位"""
@@ -138,11 +137,11 @@ class SplitView:
     indices: np.ndarray
     X: np.ndarray
     y: np.ndarray
-    keys: pd.DataFrame
+    keys: pl.DataFrame
     feature_names: List[str]
     label_names: List[str]
-    extra: Optional[pd.DataFrame] = None
-    group: Optional[pd.DataFrame] = None
+    extra: Optional[pl.DataFrame] = None
+    group: Optional[pl.DataFrame] = None
     
     @property
     def n_samples(self) -> int:
@@ -164,7 +163,7 @@ class DataBundle:
     """
     X: np.ndarray
     y: np.ndarray
-    meta: pd.DataFrame
+    meta: pl.DataFrame
     feature_names: Optional[List[str]] = None
 
 

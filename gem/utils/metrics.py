@@ -2,7 +2,7 @@
 指标系统 - 训练内外统一口径
 """
 
-from __future__ import annotations
+
 
 from abc import ABC, abstractmethod
 from typing import Dict, List

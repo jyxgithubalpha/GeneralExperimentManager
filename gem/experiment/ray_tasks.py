@@ -8,12 +8,9 @@ Ray 单元:
 
 关键约束:
 - run_split 不占 GPU; GPU 留给 trial/final_train tasks
-- artifacts 按 exp/split_id/(trial_id)/... 落盘
+- artifacts 在 exp/split_id/(trial_id)/... 落盘
 - state 每步可恢复
 """
-
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -71,10 +68,9 @@ def _run_split_impl(
     
     Args:
         method_config: 包含 trainer, evaluator, importance_extractor, tuner 的配置字典
-        data_processor_config: DataProcessor 的 Hydra 配置
+        data_processor_config: DataProcessor Hydra 配置
     """
     from hydra.utils import instantiate
-    from ..data.data_processor import DataProcessor, create_default_processor
     from ..method.base import Method
     
     split_id = task.split_id
@@ -110,11 +106,8 @@ def _run_split_impl(
             split_spec=splitspec,
         )
         
-        # 2. DataProcessor - 从配置实例化或使用默认
-        if data_processor_config:
-            processor = instantiate(data_processor_config)
-        else:
-            processor = create_default_processor()
+        # 2. DataProcessor - 从配置实例化
+        processor = instantiate(data_processor_config)
         processed_views = processor.fit_transform(split_views, rolling_state)
         
         # 3. Setup Method - 从配置实例化组件
@@ -483,7 +476,7 @@ def create_task_manager(
         **ray_kwargs: 其他 Ray 初始化参数
         
     Returns:
-        任务管理器实例
+        任务管理器实�?
     """
     if use_ray:
         manager = RayTaskManager(

@@ -2,7 +2,7 @@
 目标函数工厂 - 自定义损失函数
 """
 
-from __future__ import annotations
+
 
 from typing import Any, Callable, Dict, List, Tuple, Union
 

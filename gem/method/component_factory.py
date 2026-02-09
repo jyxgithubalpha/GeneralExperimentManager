@@ -1,26 +1,27 @@
 """
-Component Registry - 组件注册表
-
+Component Registry - 组件注册器
 提供统一的接口来注册和创建不同机器学习框架的组件实例
 支持动态注册新的组件实现
 """
 
-from __future__ import annotations
+
 
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from .base import (
+    BaseDataProcessor,
     BaseEvaluator,
     BaseImportanceExtractor,
     BaseParamSpace,
     BaseTrainer,
     BaseTuner,
+    DatasetAdapter,
 )
 
 
 class ComponentRegistry:
     """
-    组件注册表
+    组件注册器
     
     使用装饰器或显式注册方法来注册组件
     
@@ -43,6 +44,8 @@ class ComponentRegistry:
         "importance_extractor": {},
         "param_space": {},
         "tuner": {},
+        "data_adapter": {},
+        "data_processor": {},
     }
     
     @classmethod
@@ -56,7 +59,7 @@ class ComponentRegistry:
         注册组件
         
         Args:
-            component_type: 组件类型 (trainer, evaluator, importance_extractor, param_space, tuner)
+            component_type: 组件类型 (trainer, evaluator, importance_extractor, param_space, tuner, data_adapter, data_processor)
             name: 组件名称 (如 lightgbm, xgboost)
             component_class: 组件类
         """
@@ -102,6 +105,22 @@ class ComponentRegistry:
         """注册 Tuner 的装饰器"""
         def decorator(component_class: Type[BaseTuner]) -> Type[BaseTuner]:
             cls.register("tuner", name, component_class)
+            return component_class
+        return decorator
+    
+    @classmethod
+    def register_data_adapter(cls, name: str) -> Callable[[Type[DatasetAdapter]], Type[DatasetAdapter]]:
+        """注册 DataAdapter 的装饰器"""
+        def decorator(component_class: Type[DatasetAdapter]) -> Type[DatasetAdapter]:
+            cls.register("data_adapter", name, component_class)
+            return component_class
+        return decorator
+    
+    @classmethod
+    def register_data_processor(cls, name: str) -> Callable[[Type[BaseDataProcessor]], Type[BaseDataProcessor]]:
+        """注册 DataProcessor 的装饰器"""
+        def decorator(component_class: Type[BaseDataProcessor]) -> Type[BaseDataProcessor]:
+            cls.register("data_processor", name, component_class)
             return component_class
         return decorator
     
@@ -194,23 +213,38 @@ class ComponentRegistry:
         if base_params is None:
             base_params = {}
         return cls.create("tuner", name, param_space=param_space, base_params=base_params, **kwargs)
+    
+    @classmethod
+    def create_data_adapter(cls, name: str = "lightgbm", **kwargs) -> DatasetAdapter:
+        """创建 DataAdapter"""
+        return cls.create("data_adapter", name, **kwargs)
+    
+    @classmethod
+    def create_data_processor(cls, name: str = "default", **kwargs) -> BaseDataProcessor:
+        """创建 DataProcessor"""
+        return cls.create("data_processor", name, **kwargs)
 
 
 def _register_default_components():
-    """注册默认的 LightGBM 组件"""
+    """注册默认组件"""
     from .lgb import (
+        LightGBMAdapter,
         LightGBMEvaluator,
         LightGBMImportanceExtractor,
         LightGBMParamSpace,
         LightGBMTrainer,
         LightGBMTuner,
     )
+    from .base import NumpyAdapter, BaseDataProcessor
     
     ComponentRegistry.register("trainer", "lightgbm", LightGBMTrainer)
     ComponentRegistry.register("evaluator", "lightgbm", LightGBMEvaluator)
     ComponentRegistry.register("importance_extractor", "lightgbm", LightGBMImportanceExtractor)
     ComponentRegistry.register("param_space", "lightgbm", LightGBMParamSpace)
     ComponentRegistry.register("tuner", "lightgbm", LightGBMTuner)
+    ComponentRegistry.register("data_adapter", "lightgbm", LightGBMAdapter)
+    ComponentRegistry.register("data_adapter", "numpy", NumpyAdapter)
+    ComponentRegistry.register("data_processor", "default", BaseDataProcessor)
 
 
 # 模块加载时注册默认组件

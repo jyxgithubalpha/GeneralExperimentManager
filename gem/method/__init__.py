@@ -7,8 +7,8 @@ Method module - 训练方法组件
 - xgb/: XGBoost 实现
 - catboost/: CatBoost 实现
 - mlp/: MLP 实现
-- bayesian/: 贝叶斯方法实现
-- training_dataclasses: 训练相关数据类
+- bayesian/: 贝叶斯方法实�?
+- training_dataclasses: 训练相关数据�?
 """
 from .base import (
     BaseTrainer,

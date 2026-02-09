@@ -12,7 +12,7 @@ Method - 统一训练接口
 - aux_state_delta (可选)
 - model_artifacts
 """
-from __future__ import annotations
+
 
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING

@@ -1,12 +1,12 @@
 """
 LightGBMEvaluator - LightGBM 模型评估器
 """
-from __future__ import annotations
+
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 if TYPE_CHECKING:
     from ...data.data_dataclasses import ProcessedViews
@@ -71,13 +71,13 @@ class LightGBMEvaluator(BaseEvaluator):
         
         return results
     
-    def _compute_series(self, pred: np.ndarray, view) -> Dict[str, pd.Series]:
+    def _compute_series(self, pred: np.ndarray, view) -> Dict[str, pl.Series]:
         """计算时间序列指标"""
         from scipy import stats
         
         pred = np.asarray(pred).ravel()
         y_true = view.y.ravel()
-        dates = view.keys["date"].values
+        dates = view.keys["date"].to_numpy()
         
         daily_ics = []
         daily_dates = []
@@ -95,5 +95,5 @@ class LightGBMEvaluator(BaseEvaluator):
                 daily_dates.append(d)
         
         return {
-            "daily_ic": pd.Series(daily_ics, index=daily_dates),
+            "daily_ic": pl.Series("daily_ic", daily_ics),
         }

@@ -1,12 +1,12 @@
 """
 LightGBMImportanceExtractor - LightGBM 特征重要性提取器
 """
-from __future__ import annotations
+
 
 from typing import Any, List, Tuple
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from ..base import BaseImportanceExtractor
 
@@ -30,7 +30,7 @@ class LightGBMImportanceExtractor(BaseImportanceExtractor):
         self,
         model: Any,
         feature_names: List[str],
-    ) -> Tuple[np.ndarray, pd.DataFrame]:
+    ) -> Tuple[np.ndarray, pl.DataFrame]:
         """
         提取 LightGBM 特征重要性
         
@@ -55,9 +55,9 @@ class LightGBMImportanceExtractor(BaseImportanceExtractor):
             importance = importance / np.sum(importance)
         
         # 创建 DataFrame
-        df = pd.DataFrame({
+        df = pl.DataFrame({
             "feature": feature_names,
             "importance": importance,
-        }).sort_values("importance", ascending=False)
+        }).sort("importance", descending=True)
         
         return importance, df

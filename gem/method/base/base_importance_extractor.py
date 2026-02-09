@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Tuple
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 
 class BaseImportanceExtractor(ABC):
@@ -16,6 +16,6 @@ class BaseImportanceExtractor(ABC):
         self,
         model: Any,
         feature_names: List[str],
-    ) -> Tuple[np.ndarray, pd.DataFrame]:
+    ) -> Tuple[np.ndarray, pl.DataFrame]:
         """提取特征重要性"""
         pass

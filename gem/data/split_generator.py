@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from .data_dataclasses import SplitSpec, SplitGeneratorOutput
 
@@ -13,21 +13,25 @@ class SplitGenerator(ABC):
         pass
     
     @staticmethod
-    def _date_to_int(d: pd.Timestamp) -> int:
+    def _date_to_int(d: datetime) -> int:
         return int(d.strftime("%Y%m%d"))
     
     @staticmethod
-    def _int_to_date(d: int) -> pd.Timestamp:
-        return pd.to_datetime(str(d), format="%Y%m%d")
+    def _int_to_date(d: int) -> datetime:
+        return datetime.strptime(str(d), "%Y%m%d")
     
     @staticmethod
     def _generate_date_range(start: int, end: int) -> np.ndarray:
-        start_ts = pd.to_datetime(str(start), format="%Y%m%d")
-        end_ts = pd.to_datetime(str(end), format="%Y%m%d")
+        start_ts = datetime.strptime(str(start), "%Y%m%d")
+        end_ts = datetime.strptime(str(end), "%Y%m%d")
         if start_ts > end_ts:
             raise ValueError("start date must be less than end date")
-        dates = pd.date_range(start=start_ts, end=end_ts, freq="D")
-        return np.array([int(d.strftime("%Y%m%d")) for d in dates], dtype=np.int32)
+        dates = []
+        current = start_ts
+        while current <= end_ts:
+            dates.append(int(current.strftime("%Y%m%d")))
+            current += timedelta(days=1)
+        return np.array(dates, dtype=np.int32)
 
 
 class RollingWindowSplitGenerator(SplitGenerator):
@@ -56,7 +60,7 @@ class RollingWindowSplitGenerator(SplitGenerator):
         test_end_ts = self._int_to_date(self.test_date_end)
         
         offset_days = self.train_len + self.gap + self.val_len + self.gap
-        first_train_start_ts = test_start_ts - pd.Timedelta(days=offset_days)
+        first_train_start_ts = test_start_ts - timedelta(days=offset_days)
         
         split_dates = self._generate_date_range(
             self._date_to_int(first_train_start_ts),
@@ -130,7 +134,7 @@ class TimeSeriesKFoldSplitGenerator(SplitGenerator):
         test_start_ts = self._int_to_date(self.test_date_start)
         test_end_ts = self._int_to_date(self.test_date_end)
         train_val_start_ts = self._int_to_date(self.train_val_date_start)
-        train_val_end_ts = test_start_ts - pd.Timedelta(days=self.gap + 1)
+        train_val_end_ts = test_start_ts - timedelta(days=self.gap + 1)
         
         pretrain_start_ts = None
         if self.pretrain_date_start is not None:
@@ -146,7 +150,7 @@ class TimeSeriesKFoldSplitGenerator(SplitGenerator):
         if pretrain_start_ts is not None:
             pretrain_range = self._generate_date_range(
                 self._date_to_int(pretrain_start_ts),
-                self._date_to_int(train_val_start_ts - pd.Timedelta(days=1))
+                self._date_to_int(train_val_start_ts - timedelta(days=1))
             )
             pretrain_dates = list(pretrain_range)
         
