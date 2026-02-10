@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..data.data_dataclasses import SplitSpec
-    from .state_dataclasses import StatePolicyMode
+    from .state_policy import StatePolicyMode
 
 
 def quarter_bucket_fn(splitspec: "SplitSpec") -> str:
@@ -73,21 +73,20 @@ class BucketManager:
     def create_execution_plan(
         self,
         splitspecs: List["SplitSpec"],
-        mode: "StatePolicyMode",
+        mode: str,
     ) -> List[List["SplitSpec"]]:
         """
         创建执行计划
         """
-        from .state_dataclasses import StatePolicyMode
         
-        if mode == StatePolicyMode.NONE:
+        if mode == 'none':
             # 全并行
             return [splitspecs]
-        elif mode == StatePolicyMode.PER_SPLIT:
+        elif mode == 'per_split':
             # 严格串行
             sorted_specs = sorted(splitspecs, key=lambda s: s.test_date_list[0] if s.test_date_list else 0)
             return [[s] for s in sorted_specs]
-        elif mode == StatePolicyMode.BUCKET:
+        elif mode == 'bucket':
             # Bucket 内并行，Bucket 间串行
             buckets = self.group_splits(splitspecs)
             order = self.get_bucket_order(buckets)

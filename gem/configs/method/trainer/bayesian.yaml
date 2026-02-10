@@ -1,2 +1,0 @@
-_target_: gem.method.bayesian.BayesianTrainer
-model_type: "bayesian_ridge"

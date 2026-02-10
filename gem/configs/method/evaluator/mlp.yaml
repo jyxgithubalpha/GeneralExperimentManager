@@ -1,4 +1,0 @@
-_target_: gem.method.mlp.MLPEvaluator
-metric_names:
-  - pearsonr_ic
-  - pearsonr_icir

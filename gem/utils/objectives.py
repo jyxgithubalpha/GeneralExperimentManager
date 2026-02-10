@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, List, Tuple, Union
 import lightgbm as lgb
 import numpy as np
 
-from ..data.data_dataclasses import SplitSpec
 from ..data.data_dataclasses import SplitData
 
 

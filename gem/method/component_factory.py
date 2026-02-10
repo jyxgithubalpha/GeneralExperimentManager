@@ -9,13 +9,13 @@ Component Registry - 组件注册器
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from .base import (
-    BaseDataProcessor,
+    BaseTransformPipeline,
     BaseEvaluator,
     BaseImportanceExtractor,
     BaseParamSpace,
     BaseTrainer,
     BaseTuner,
-    DatasetAdapter,
+    BaseAdapter,
 )
 
 
@@ -109,17 +109,17 @@ class ComponentRegistry:
         return decorator
     
     @classmethod
-    def register_data_adapter(cls, name: str) -> Callable[[Type[DatasetAdapter]], Type[DatasetAdapter]]:
+    def register_data_adapter(cls, name: str) -> Callable[[Type[BaseAdapter]], Type[BaseAdapter]]:
         """注册 DataAdapter 的装饰器"""
-        def decorator(component_class: Type[DatasetAdapter]) -> Type[DatasetAdapter]:
+        def decorator(component_class: Type[BaseAdapter]) -> Type[BaseAdapter]:
             cls.register("data_adapter", name, component_class)
             return component_class
         return decorator
     
     @classmethod
-    def register_data_processor(cls, name: str) -> Callable[[Type[BaseDataProcessor]], Type[BaseDataProcessor]]:
+    def register_data_processor(cls, name: str) -> Callable[[Type[BaseTransformPipeline]], Type[BaseTransformPipeline]]:
         """注册 DataProcessor 的装饰器"""
-        def decorator(component_class: Type[BaseDataProcessor]) -> Type[BaseDataProcessor]:
+        def decorator(component_class: Type[BaseTransformPipeline]) -> Type[BaseTransformPipeline]:
             cls.register("data_processor", name, component_class)
             return component_class
         return decorator
@@ -215,12 +215,12 @@ class ComponentRegistry:
         return cls.create("tuner", name, param_space=param_space, base_params=base_params, **kwargs)
     
     @classmethod
-    def create_data_adapter(cls, name: str = "lightgbm", **kwargs) -> DatasetAdapter:
+    def create_data_adapter(cls, name: str = "lightgbm", **kwargs) -> BaseAdapter:
         """创建 DataAdapter"""
         return cls.create("data_adapter", name, **kwargs)
     
     @classmethod
-    def create_data_processor(cls, name: str = "default", **kwargs) -> BaseDataProcessor:
+    def create_data_processor(cls, name: str = "default", **kwargs) -> BaseTransformPipeline:
         """创建 DataProcessor"""
         return cls.create("data_processor", name, **kwargs)
 
@@ -235,7 +235,7 @@ def _register_default_components():
         LightGBMTrainer,
         LightGBMTuner,
     )
-    from .base import NumpyAdapter, BaseDataProcessor
+    from .base import BaseTransformPipeline
     
     ComponentRegistry.register("trainer", "lightgbm", LightGBMTrainer)
     ComponentRegistry.register("evaluator", "lightgbm", LightGBMEvaluator)
@@ -243,8 +243,7 @@ def _register_default_components():
     ComponentRegistry.register("param_space", "lightgbm", LightGBMParamSpace)
     ComponentRegistry.register("tuner", "lightgbm", LightGBMTuner)
     ComponentRegistry.register("data_adapter", "lightgbm", LightGBMAdapter)
-    ComponentRegistry.register("data_adapter", "numpy", NumpyAdapter)
-    ComponentRegistry.register("data_processor", "default", BaseDataProcessor)
+    ComponentRegistry.register("data_processor", "default", BaseTransformPipeline)
 
 
 # 模块加载时注册默认组件

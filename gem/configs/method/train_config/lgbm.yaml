@@ -1,5 +1,5 @@
 # LightGBM training configuration
-_target_: gem.method.training_dataclasses.TrainConfig
+_target_: gem.method.method_dataclasses.TrainConfig
 
 # Training parameters
 params:

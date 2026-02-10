@@ -23,7 +23,9 @@ def main(cfg: DictConfig) -> None:
     experiment_config = instantiate(cfg.method.experiment_config)
     train_config = instantiate(cfg.method.train_config)
     
-    data_processor_config = cfg.get("data_processor", None)
+    # 从 method 配置获取 transform_pipeline 和 adapter
+    transform_pipeline_config = cfg.method.get("transform_pipeline", None)
+    adapter_config = cfg.method.get("adapter", None)
     method_config = cfg.method
     
     manager = ExperimentManager(
@@ -32,7 +34,8 @@ def main(cfg: DictConfig) -> None:
         experiment_config=experiment_config,
         train_config=train_config,
         method_config=method_config,
-        data_processor_config=data_processor_config,
+        transform_pipeline_config=transform_pipeline_config,
+        adapter_config=adapter_config,
     )
     
     log.info("Starting experiment: %s", experiment_config.name)

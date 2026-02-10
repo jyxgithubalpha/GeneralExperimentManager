@@ -11,7 +11,7 @@ seed: 42
 ray_address: null
 num_cpus: null
 num_gpus: null
-use_ray: true
+use_ray: false
 resource_request:
   trial_gpus: 0
   final_train_gpus: 0

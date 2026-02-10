@@ -3,16 +3,14 @@ LightGBMEvaluator - LightGBM 模型评估器
 """
 
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import polars as pl
 
-if TYPE_CHECKING:
-    from ...data.data_dataclasses import ProcessedViews
-
 from ..base import BaseEvaluator
-from ..training_dataclasses import EvalResult
+from ..method_dataclasses import EvalResult
+from ...data.data_dataclasses import ProcessedViews
 
 
 class LightGBMEvaluator(BaseEvaluator):

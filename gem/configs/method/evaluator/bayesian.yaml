@@ -1,4 +1,0 @@
-_target_: gem.method.bayesian.BayesianEvaluator
-metric_names:
-  - pearsonr_ic
-  - pearsonr_icir

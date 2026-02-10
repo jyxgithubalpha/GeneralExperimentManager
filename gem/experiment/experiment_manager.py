@@ -31,16 +31,9 @@ from hydra.core.hydra_config import HydraConfig
 from ..data.data_module import DataModule
 from ..data.split_generator import SplitGenerator
 from ..data.data_dataclasses import GlobalStore, SplitSpec
-from .state_dataclasses import (
-    RollingState,
-    StatePolicyMode,
-    ResourceRequest,
-    ExperimentConfig,
-    SplitTask,
-    SplitResult,
-)
-from .state_policy import BucketManager
-from ..method.training_dataclasses import TrainConfig
+from .experiment_dataclasses import RollingState, ExperimentConfig, SplitTask, SplitResult, StatePolicyConfig
+from .bucketing import BucketManager
+from ..method.method_dataclasses import TrainConfig
 
 
 
@@ -52,14 +45,16 @@ class ExperimentManager:
         train_config: TrainConfig,
         experiment_config: ExperimentConfig,
         method_config: Optional[Dict] = None,
-        data_processor_config: Optional[Dict] = None,
+        transform_pipeline_config: Optional[Dict] = None,
+        adapter_config: Optional[Dict] = None,
     ):
         self.experiment_config = experiment_config
         self.split_generator = split_generator
         self.data_module = data_module
         self.train_config = train_config
         self.method_config = method_config
-        self.data_processor_config = data_processor_config
+        self.transform_pipeline_config = transform_pipeline_config
+        self.adapter_config = adapter_config
         
         # Results
         self._results: Dict[int, SplitResult] = {}
@@ -71,6 +66,18 @@ class ExperimentManager:
     @property
     def use_ray(self) -> bool:
         return self._use_ray
+    
+    @property
+    def feature_names(self) -> Optional[List[str]]:
+        """获取特征名列表"""
+        if self._global_store is not None:
+            return self._global_store.feature_names
+        return None
+    
+    @property
+    def splitspec_list(self) -> Optional[List[SplitSpec]]:
+        """获取 split 规格列表"""
+        return self._splitspec_list
     
     def run(self) -> Dict[int, SplitResult]:
         self._start_time = time.time()
@@ -165,18 +172,18 @@ class ExperimentManager:
         results = []
         current_state = init_state
         
-        if mode == StatePolicyMode.NONE.value:
+        if mode == 'none':
             # 全并行 (本地串行执行)
             print(f"  - Mode: NONE (parallel conceptually, serial locally)")
             for i, task in enumerate(tasks):
                 print(f"    Running split {task.split_id} ({i+1}/{len(tasks)})")
                 result = manager.run_split(
-                    task, self._global_store, None, self.experiment_config, self.train_config, self.method_config, self.data_processor_config
+                    task, self._global_store, None, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
                 )
                 results.append(result)
                 self._print_split_result(result)
         
-        elif mode == StatePolicyMode.PER_SPLIT.value:
+        elif mode == 'per_split':
             # 严格串行
             print(f"  - Mode: PER_SPLIT (strict serial)")
             for i, batch in enumerate(execution_plan):
@@ -184,7 +191,7 @@ class ExperimentManager:
                     task = task_map[spec.split_id]
                     print(f"    Running split {task.split_id}")
                     result = manager.run_split(
-                        task, self._global_store, current_state, self.experiment_config, self.train_config, self.method_config, self.data_processor_config
+                        task, self._global_store, current_state, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
                     )
                     results.append(result)
                     self._print_split_result(result)
@@ -194,7 +201,7 @@ class ExperimentManager:
                         current_state, result, policy_config
                     )
         
-        elif mode == StatePolicyMode.BUCKET.value:
+        elif mode == 'bucket':
             # Bucket 内并行 (本地串行)，Bucket 间串行
             print(f"  - Mode: BUCKET")
             for bucket_idx, batch in enumerate(execution_plan):
@@ -205,7 +212,7 @@ class ExperimentManager:
                     task = task_map[spec.split_id]
                     print(f"      Running split {task.split_id}")
                     result = manager.run_split(
-                        task, self._global_store, current_state, self.experiment_config, self.train_config, self.method_config, self.data_processor_config
+                        task, self._global_store, current_state, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
                     )
                     bucket_results.append(result)
                     results.append(result)
@@ -252,7 +259,7 @@ class ExperimentManager:
             task_map = {t.splitspec.split_id: t for t in tasks}
             result_refs = []
             
-            if mode == StatePolicyMode.NONE.value:
+            if mode == 'none':
                 # 全并行
                 print(f"  - Mode: NONE (fully parallel)")
                 state_ref = manager.put(None)
@@ -260,13 +267,13 @@ class ExperimentManager:
                 refs = []
                 for task in tasks:
                     ref = manager.run_split(
-                        task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.data_processor_config
+                        task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
                     )
                     refs.append(ref)
                 
                 results = manager.get(refs)
             
-            elif mode == StatePolicyMode.PER_SPLIT.value:
+            elif mode == 'per_split':
                 # 严格串行
                 print(f"  - Mode: PER_SPLIT (strict serial)")
                 state_ref = manager.put(init_state)
@@ -278,7 +285,7 @@ class ExperimentManager:
                         print(f"    Running split {task.split_id}")
                         
                         result_ref = manager.run_split(
-                            task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.data_processor_config
+                            task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
                         )
                         result = manager.get(result_ref)
                         results.append(result)
@@ -289,7 +296,7 @@ class ExperimentManager:
                             state_ref, result_ref, policy_config
                         )
             
-            elif mode == StatePolicyMode.BUCKET.value:
+            elif mode == 'bucket':
                 # Bucket 模式
                 print(f"  - Mode: BUCKET")
                 state_ref = manager.put(init_state)
@@ -303,7 +310,7 @@ class ExperimentManager:
                     for spec in batch:
                         task = task_map[spec.split_id]
                         ref = manager.run_split(
-                            task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.data_processor_config
+                            task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
                         )
                         refs.append(ref)
                     

@@ -2,21 +2,32 @@
 Experiment module - 实验管理
 """
 from .experiment_manager import ExperimentManager
-from .state_dataclasses import (
+from .experiment_dataclasses import (
     ExperimentConfig,
     StatePolicyConfig,
-    StatePolicyMode,
     SplitTask,
     SplitResult,
     ResourceRequest,
+    # State 相关
+    BaseState,
+    RollingState,
+    FeatureImportanceState,
+    SampleWeightState,
+    TuningState,
 )
 
 __all__ = [
     "ExperimentManager",
     "ExperimentConfig",
     "StatePolicyConfig",
-    "StatePolicyMode",
     "SplitTask",
     "SplitResult",
     "ResourceRequest",
+    # State 相关
+    "BaseState",
+    "RollingState",
+    "FeatureImportanceState",
+    "SampleWeightState",
+    "TuningState",
+    "DataWeightState",
 ]

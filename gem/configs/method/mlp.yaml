@@ -1,9 +1,0 @@
-defaults:
-  - model: mlp
-  - train_config: mlp
-  - experiment_config: mlp
-  - trainer: mlp
-  - evaluator: mlp
-  - importance_extractor: mlp
-  - tuner: mlp
-  - _self_

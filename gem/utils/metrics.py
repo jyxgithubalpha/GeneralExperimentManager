@@ -13,6 +13,15 @@ from scipy import stats
 from ..data.data_dataclasses import DataBundle
 
 
+def _to_numpy(x):
+    """转换为 numpy 数组，兼容 numpy/pandas/polars"""
+    if hasattr(x, 'to_numpy'):  # polars Series
+        return x.to_numpy()
+    if hasattr(x, 'values'):  # pandas Series
+        return x.values
+    return np.asarray(x)
+
+
 class Metric(ABC):
     """指标基类 - 统一定义，避免口径漂移"""
     name: str = "base_metric"
@@ -32,7 +41,7 @@ class PearsonICMetric(Metric):
     def compute(self, pred: np.ndarray, bundle: DataBundle) -> float:
         pred = np.asarray(pred).ravel()
         y_true = bundle.y.ravel()
-        date = bundle.extra["date"].values
+        date = _to_numpy(bundle.extra["date"])
         
         unique_dates = np.unique(date)
         daily_ics = []
@@ -59,7 +68,7 @@ class ICIRMetric(Metric):
     def compute(self, pred: np.ndarray, bundle: DataBundle) -> float:
         pred = np.asarray(pred).ravel()
         y_true = bundle.y.ravel()
-        date = bundle.extra["date"].values
+        date = _to_numpy(bundle.extra["date"])
         
         unique_dates = np.unique(date)
         daily_ics = []
@@ -107,9 +116,9 @@ class PortfolioReturnMetric(Metric):
     
     def compute(self, pred: np.ndarray, bundle: DataBundle) -> float:
         pred = np.asarray(pred).ravel()
-        date = bundle.extra["date"].values
-        ret = bundle.extra[self.ret_col].values
-        liquidity = bundle.extra[self.liquidity_col].values
+        date = _to_numpy(bundle.extra["date"])
+        ret = _to_numpy(bundle.extra[self.ret_col])
+        liquidity = _to_numpy(bundle.extra[self.liquidity_col])
         
         unique_dates = np.unique(date)
         daily_rets = []

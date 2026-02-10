@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import numpy as np
 import polars as pl
 
-from ..method.training_dataclasses import EvalResult, FitResult
+from ..method.method_dataclasses import EvalResult, FitResult
 from ..data.data_dataclasses import SplitSpec
 from ..data.data_dataclasses import SplitData
 

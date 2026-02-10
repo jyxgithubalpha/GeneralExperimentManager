@@ -1,3 +1,0 @@
-_target_: gem.method.xgb.XGBoostImportanceExtractor
-importance_type: gain
-normalize: true

@@ -16,18 +16,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..data.data_dataclasses import (
-    ProcessedViews,
-    GlobalStore,
-    SplitViews,
-)
-from .experiment_manager import SplitResult
-from .experiment_manager import (
-    ExperimentConfig,
-    SplitTask,
-)
-from .state_dataclasses import RollingState
-from ..method.training_dataclasses import TrainConfig
+from ..data.data_dataclasses import ProcessedViews, GlobalStore, SplitViews
+from .experiment_dataclasses import RollingState, StatePolicyConfig, SplitResult, ExperimentConfig, SplitTask
+from ..method.method_dataclasses import TrainConfig, MethodOutput
 
 
 # =============================================================================
@@ -54,121 +45,122 @@ def _run_split_impl(
     config: ExperimentConfig,
     train_config: TrainConfig,
     method_config: Optional[Dict[str, Any]] = None,
-    data_processor_config: Optional[Dict[str, Any]] = None,
+    transform_pipeline_config: Optional[Dict[str, Any]] = None,
+    adapter_config: Optional[Dict[str, Any]] = None,
 ) -> SplitResult:
     """
     执行单个 split 的实现
     
     流程:
     1. 索引取数 -> build_views
-    2. DataProcessor -> fit_transform
+    2. TransformPipeline -> fit_transform
     3. Adapter -> to_backend_dataset
     4. Method.run() -> tune/train/eval/importance
     5. 返回 SplitResult
     
     Args:
         method_config: 包含 trainer, evaluator, importance_extractor, tuner 的配置字典
-        data_processor_config: DataProcessor Hydra 配置
+        transform_pipeline_config: TransformPipeline Hydra 配置
+        adapter_config: Adapter Hydra 配置
     """
     from hydra.utils import instantiate
-    from ..method.base import Method
+    from ..method.base import BaseMethod
     
     split_id = task.split_id
     splitspec = task.splitspec
     
-    try:
-        # 1. Build views
-        idx_train = global_store.get_indices_by_dates(splitspec.train_date_list)
-        idx_val = global_store.get_indices_by_dates(splitspec.val_date_list)
-        idx_test = global_store.get_indices_by_dates(splitspec.test_date_list)
-        
-        # 检查是否有空集，如果有则跳过该 split
-        if len(idx_train) == 0 or len(idx_val) == 0 or len(idx_test) == 0:
-            empty_sets = []
-            if len(idx_train) == 0:
-                empty_sets.append("train")
-            if len(idx_val) == 0:
-                empty_sets.append("val")
-            if len(idx_test) == 0:
-                empty_sets.append("test")
-            
-            return SplitResult(
-                split_id=split_id,
-                metrics={},
-                skipped=True,
-                skip_reason=f"Empty sets: {', '.join(empty_sets)}",
-            )
-        
-        split_views = SplitViews(
-            train=global_store.take(idx_train),
-            val=global_store.take(idx_val),
-            test=global_store.take(idx_test),
-            split_spec=splitspec,
-        )
-        
-        # 2. DataProcessor - 从配置实例化
-        processor = instantiate(data_processor_config)
-        processed_views = processor.fit_transform(split_views, rolling_state)
-        
-        # 3. Setup Method - 从配置实例化组件
-        trainer = None
-        evaluator = None
-        importance_extractor = None
-        tuner = None
-        
-        # 使用 Hydra instantiate 加载组件
-        trainer = instantiate(method_config["trainer"])
-        evaluator = instantiate(method_config["evaluator"])
-        importance_extractor = instantiate(method_config["importance_extractor"])
-        if config.n_trials > 0:
-            tuner_cfg = method_config["tuner"].copy() if hasattr(method_config["tuner"], 'copy') else dict(method_config["tuner"])
-            tuner = instantiate(
-                tuner_cfg,
-                base_params=train_config.params,
-                n_trials=config.n_trials,
-                timeout=config.trial_timeout,
-                seed=config.seed + split_id,
-            )
-        
-        method = Method(
-            trainer=trainer,
-            evaluator=evaluator,
-            importance_extractor=importance_extractor,
-            tuner=tuner,
-        )
-        
-        # 4. Run method
-        save_dir = Path(config.output_dir) / f"split_{split_id}"
-        method_output = method.run(
-            views=processed_views,
-            config=train_config,
-            do_tune=(tuner is not None),
-            save_dir=save_dir,
-        )
-        
-        # 5. Build SplitResult
-        # Flatten metrics
-        metrics_flat = {}
-        for mode, eval_result in method_output.metrics_eval.items():
-            metrics_flat.update(eval_result.metrics)
+    # 1. Build views
+    idx_train = global_store.get_indices_by_dates(splitspec.train_date_list)
+    idx_val = global_store.get_indices_by_dates(splitspec.val_date_list)
+    idx_test = global_store.get_indices_by_dates(splitspec.test_date_list)
+    
+    # 检查是否有空集，如果有则跳过该 split
+    if len(idx_train) == 0 or len(idx_val) == 0 or len(idx_test) == 0:
+        empty_sets = []
+        if len(idx_train) == 0:
+            empty_sets.append("train")
+        if len(idx_val) == 0:
+            empty_sets.append("val")
+        if len(idx_test) == 0:
+            empty_sets.append("test")
         
         return SplitResult(
             split_id=split_id,
-            importance_vector=method_output.importance_vector,
-            feature_names_hash=method_output.feature_names_hash,
-            metrics=metrics_flat,
+            metrics={},
+            skipped=True,
+            skip_reason=f"Empty sets: {', '.join(empty_sets)}",
         )
-        
-    except Exception as e:
-        import traceback
-        # 创建一个带有错误信息的 metrics 字典
-        error_metrics = {"error": f"{str(e)}\n{traceback.format_exc()}"}
-        return SplitResult(
-            split_id=split_id,
-            importance_vector=np.array([]),
-            feature_names_hash="",
-            metrics=error_metrics,
+    
+    split_views = SplitViews(
+        train=global_store.take(idx_train),
+        val=global_store.take(idx_val),
+        test=global_store.take(idx_test),
+        split_spec=splitspec,
+    )
+    
+    # 2. DataProcessor - 从配置实例化
+    transform_pipeline = instantiate(transform_pipeline_config)
+    transformed_views, transform_stats = transform_pipeline.fit_transform(split_views, rolling_state)
+    
+    # 3. Setup Method - 从配置实例化组件
+    trainer = None
+    evaluator = None
+    importance_extractor = None
+    tuner = None
+    adapter = None
+    
+    # 使用 Hydra instantiate 加载组件
+    trainer = instantiate(method_config["trainer"])
+    evaluator = instantiate(method_config["evaluator"])
+    importance_extractor = instantiate(method_config["importance_extractor"])
+    
+    # 实例化 adapter
+    if adapter_config is not None:
+        adapter = instantiate(adapter_config)
+    elif "adapter" in method_config:
+        adapter = instantiate(method_config["adapter"])
+    
+    if config.n_trials > 0:
+        tuner_cfg = method_config["tuner"].copy() if hasattr(method_config["tuner"], 'copy') else dict(method_config["tuner"])
+        tuner = instantiate(
+            tuner_cfg,
+            base_params=train_config.params,
+            n_trials=config.n_trials,
+            timeout=config.trial_timeout,
+            seed=config.seed + split_id,
         )
+    
+    method = BaseMethod(
+        transform_pipeline=transform_pipeline,
+        adapter=adapter,
+        trainer=trainer,
+        evaluator=evaluator,
+        importance_extractor=importance_extractor,
+        tuner=tuner,
+    )
+    
+    # 4. Run method
+    save_dir = Path(config.output_dir) / f"split_{split_id}"
+    method_output = method.run(
+        views=transformed_views,
+        config=train_config,
+        do_tune=(tuner is not None),
+        save_dir=save_dir,
+        rolling_state=rolling_state,
+    )
+    
+    # 5. Build SplitResult
+    # Flatten metrics
+    metrics_flat = {}
+    for mode, eval_result in method_output.metrics_eval.items():
+        metrics_flat.update(eval_result.metrics)
+    
+    return SplitResult(
+        split_id=split_id,
+        importance_vector=method_output.importance_vector,
+        feature_names_hash=method_output.feature_names_hash,
+        metrics=metrics_flat,
+    )
 
 
 def _run_trial_impl(
@@ -223,12 +215,12 @@ def _run_final_train_impl(
     """
     执行最终训练的实现 (GPU task)
     """
-    from ..method.method import Method
+    from ..method.base import BaseMethod
     from ..method.trainer import Trainer
     from ..method.evaluator import Evaluator
     from ..method.importance_extractor import ImportanceExtractor
     
-    method = Method(
+    method = BaseMethod(
         trainer=Trainer(),
         evaluator=Evaluator(),
         importance_extractor=ImportanceExtractor(),
@@ -323,11 +315,12 @@ class RayTaskManager:
         config: ExperimentConfig,
         train_config: TrainConfig,
         method_config: Optional[Dict[str, Any]] = None,
-        data_processor_config: Optional[Dict[str, Any]] = None,
+        transform_pipeline_config: Optional[Dict[str, Any]] = None,
+        adapter_config: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """提交 run_split 任务"""
         return self._remote_funcs["run_split"].remote(
-            task, global_ref, state_ref, config, train_config, method_config, data_processor_config
+            task, global_ref, state_ref, config, train_config, method_config, transform_pipeline_config, adapter_config
         )
     
     def run_trial(
@@ -422,10 +415,11 @@ class LocalTaskManager:
         config: ExperimentConfig,
         train_config: TrainConfig,
         method_config: Optional[Dict[str, Any]] = None,
-        data_processor_config: Optional[Dict[str, Any]] = None,
+        transform_pipeline_config: Optional[Dict[str, Any]] = None,
+        adapter_config: Optional[Dict[str, Any]] = None,
     ) -> SplitResult:
         """本地执行 run_split"""
-        return _run_split_impl(task, global_store, rolling_state, config, train_config, method_config, data_processor_config)
+        return _run_split_impl(task, global_store, rolling_state, config, train_config, method_config, transform_pipeline_config, adapter_config)
     
     def update_state(
         self,

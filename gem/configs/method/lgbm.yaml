@@ -6,4 +6,6 @@ defaults:
   - evaluator: lgbm
   - importance_extractor: lgbm
   - tuner: lgbm
+  - adapter: lgbm
+  - transform_pipeline: defaults
   - _self_

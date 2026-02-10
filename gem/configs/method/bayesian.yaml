@@ -1,9 +1,0 @@
-defaults:
-  - model: bayesian
-  - train_config: bayesian
-  - experiment_config: bayesian
-  - trainer: bayesian
-  - evaluator: bayesian
-  - importance_extractor: bayesian
-  - tuner: bayesian
-  - _self_

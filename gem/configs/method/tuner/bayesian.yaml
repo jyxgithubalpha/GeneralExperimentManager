@@ -1,7 +1,0 @@
-_target_: gem.method.bayesian.BayesianTuner
-param_space:
-  _target_: gem.method.bayesian.BayesianParamSpace
-target_metric: pearsonr_ic
-direction: maximize
-use_shrinkage: false
-shrink_ratio: 0.5

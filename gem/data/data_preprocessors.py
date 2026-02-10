@@ -129,8 +129,37 @@ class RenameColumnsPreprocessor(SingleSourceDataPreprocessor):
 
 
 class DTypePreprocessor(SingleSourceDataPreprocessor):
+    # String to Polars dtype mapping
+    DTYPE_MAP = {
+        "int8": pl.Int8,
+        "int16": pl.Int16,
+        "int32": pl.Int32,
+        "int64": pl.Int64,
+        "uint8": pl.UInt8,
+        "uint16": pl.UInt16,
+        "uint32": pl.UInt32,
+        "uint64": pl.UInt64,
+        "float32": pl.Float32,
+        "float64": pl.Float64,
+        "str": pl.Utf8,
+        "string": pl.Utf8,
+        "utf8": pl.Utf8,
+        "bool": pl.Boolean,
+        "date": pl.Date,
+        "datetime": pl.Datetime,
+    }
+    
     def __init__(self, dtype_map: Dict[str, Any]):
         self.dtype_map = dtype_map
+    
+    def _parse_dtype(self, dtype_str: str) -> pl.DataType:
+        """Convert string dtype to Polars dtype"""
+        if isinstance(dtype_str, str):
+            dtype_lower = dtype_str.lower()
+            if dtype_lower in self.DTYPE_MAP:
+                return self.DTYPE_MAP[dtype_lower]
+            raise ValueError(f"Unknown dtype: {dtype_str}")
+        return dtype_str  # Already a Polars dtype
     
     def fit(self, df: pl.DataFrame) -> 'DTypePreprocessor':
         return self
@@ -139,7 +168,8 @@ class DTypePreprocessor(SingleSourceDataPreprocessor):
         cast_exprs = []
         for col, dtype in self.dtype_map.items():
             if col in df.columns:
-                cast_exprs.append(pl.col(col).cast(dtype))
+                pl_dtype = self._parse_dtype(dtype)
+                cast_exprs.append(pl.col(col).cast(pl_dtype))
         if cast_exprs:
             return df.with_columns(cast_exprs)
         return df

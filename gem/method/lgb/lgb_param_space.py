@@ -63,3 +63,56 @@ class LightGBMParamSpace(BaseParamSpace):
             "reg_alpha": self.reg_alpha,
             "reg_lambda": self.reg_lambda,
         }
+    
+    def get_param_names(self) -> list:
+        """获取所有参数名"""
+        return [
+            "learning_rate",
+            "num_leaves",
+            "max_depth",
+            "min_child_samples",
+            "subsample",
+            "colsample_bytree",
+            "reg_alpha",
+            "reg_lambda",
+        ]
+    
+    def to_ray_tune_space(
+        self, 
+        shrunk_space: Optional[Dict[str, Tuple[float, float]]] = None
+    ) -> Dict[str, Any]:
+        """
+        转换为 Ray Tune 搜索空间
+        
+        Args:
+            shrunk_space: 收缩后的搜索空间 (可选)
+            
+        Returns:
+            Ray Tune 搜索空间字典
+        """
+        try:
+            from ray import tune
+        except ImportError:
+            raise ImportError("ray[tune] is required. Install with: pip install 'ray[tune]'")
+        
+        space = shrunk_space or {}
+        
+        lr_range = space.get("learning_rate", self.learning_rate)
+        nl_range = space.get("num_leaves", self.num_leaves)
+        md_range = space.get("max_depth", self.max_depth)
+        mcs_range = space.get("min_child_samples", self.min_child_samples)
+        ss_range = space.get("subsample", self.subsample)
+        cs_range = space.get("colsample_bytree", self.colsample_bytree)
+        ra_range = space.get("reg_alpha", self.reg_alpha)
+        rl_range = space.get("reg_lambda", self.reg_lambda)
+        
+        return {
+            "learning_rate": tune.loguniform(*lr_range),
+            "num_leaves": tune.randint(int(nl_range[0]), int(nl_range[1]) + 1),
+            "max_depth": tune.randint(int(md_range[0]), int(md_range[1]) + 1),
+            "min_child_samples": tune.randint(int(mcs_range[0]), int(mcs_range[1]) + 1),
+            "subsample": tune.uniform(*ss_range),
+            "colsample_bytree": tune.uniform(*cs_range),
+            "reg_alpha": tune.loguniform(*ra_range),
+            "reg_lambda": tune.loguniform(*rl_range),
+        }

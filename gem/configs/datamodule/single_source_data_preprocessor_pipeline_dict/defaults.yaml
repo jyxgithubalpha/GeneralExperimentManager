@@ -1,16 +1,34 @@
 defaults:
   - SingleSourceDataPreprocessor@fac.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@fac.steps.dtype: DTypePreprocessor
+
   - SingleSourceDataPreprocessor@ret.steps.dropnan: DropNaNPreprocessor
+  - SingleSourceDataPreprocessor@ret.steps.dtype: DTypePreprocessor
+
   - SingleSourceDataPreprocessor@ret_raw.steps.dropnan: DropNaNPreprocessor
+  - SingleSourceDataPreprocessor@ret_raw.steps.dtype: DTypePreprocessor
+
   - SingleSourceDataPreprocessor@liquidity.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@liquidity.steps.dtype: DTypePreprocessor
+
   - SingleSourceDataPreprocessor@score.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@score.steps.dtype: DTypePreprocessor
+
   - SingleSourceDataPreprocessor@benchmark.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@benchmark.steps.dtype: DTypePreprocessor
+  
   - SingleSourceDataPreprocessor@bench1.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench1.steps.dtype: DTypePreprocessor
   - SingleSourceDataPreprocessor@bench2.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench2.steps.dtype: DTypePreprocessor
   - SingleSourceDataPreprocessor@bench3.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench3.steps.dtype: DTypePreprocessor
   - SingleSourceDataPreprocessor@bench4.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench4.steps.dtype: DTypePreprocessor
   - SingleSourceDataPreprocessor@bench5.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench5.steps.dtype: DTypePreprocessor
   - SingleSourceDataPreprocessor@bench6.steps.fillnan: FillNaNPreprocessor
+  - SingleSourceDataPreprocessor@bench6.steps.dtype: DTypePreprocessor
   - _self_
 
 fac:
