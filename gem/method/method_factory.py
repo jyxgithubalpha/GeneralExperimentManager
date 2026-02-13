@@ -26,6 +26,7 @@ class MethodFactory:
         base_seed: int,
         split_id: int,
         adapter_config: Optional[Any] = None,
+        transform_config: Optional[Any] = None,
     ) -> BaseMethod:
         config = dict(method_config or {})
 
@@ -36,15 +37,21 @@ class MethodFactory:
                 f"Missing required method components in method_config: {missing}"
             )
 
-        trainer = instantiate(config["trainer"])
-        evaluator = instantiate(config["evaluator"])
-        importance_extractor = instantiate(config["importance_extractor"])
-
         adapter = None
         if adapter_config is not None:
             adapter = instantiate(adapter_config)
         elif config.get("adapter") is not None:
             adapter = instantiate(config["adapter"])
+
+        trainer_overrides = {}
+        if adapter is not None:
+            trainer_overrides["adapter"] = adapter
+        trainer = instantiate(
+            config["trainer"],
+            **MethodFactory._filter_supported_overrides(config["trainer"], trainer_overrides),
+        )
+        evaluator = instantiate(config["evaluator"])
+        importance_extractor = instantiate(config["importance_extractor"])
 
         tuner = None
         if n_trials > 0 and config.get("tuner") is not None:
@@ -62,7 +69,14 @@ class MethodFactory:
                 **MethodFactory._filter_supported_overrides(tuner_cfg, tune_overrides),
             )
 
+        transform_pipeline = None
+        if transform_config is not None:
+            transform_pipeline = instantiate(transform_config)
+        elif config.get("transform_pipeline") is not None:
+            transform_pipeline = instantiate(config["transform_pipeline"])
+
         return BaseMethod(
+            transform_pipeline=transform_pipeline,
             adapter=adapter,
             trainer=trainer,
             evaluator=evaluator,

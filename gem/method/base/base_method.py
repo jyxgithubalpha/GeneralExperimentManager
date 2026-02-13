@@ -6,14 +6,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING, Tuple
+from typing import Any, Dict, Optional, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 
 if TYPE_CHECKING:
     from ...experiment.experiment_dataclasses import RollingState
 
-from ...data.data_dataclasses import ProcessedViews
+from ...data.data_dataclasses import ProcessedViews, SplitViews
 from ..method_dataclasses import MethodOutput, StateDelta, TrainConfig, TuneResult
 from .base_adapter import BaseAdapter
 from .base_evaluator import BaseEvaluator
@@ -58,7 +58,7 @@ class BaseMethod:
             transform_pipeline=transform_pipeline,
         )
 
-        # Backward-compatible attribute access.
+        # Convenience attribute access.
         self.transform_pipeline = self.components.transform_pipeline
         self.adapter = self.components.adapter
         self.tuner = self.components.tuner
@@ -74,15 +74,17 @@ class BaseMethod:
 
     def run(
         self,
-        views: ProcessedViews,
+        views: Union[SplitViews, ProcessedViews],
         config: TrainConfig,
         do_tune: bool = True,
         save_dir: Optional[Path] = None,
         rolling_state: Optional["RollingState"] = None,
         sample_weights: Optional[Dict[str, Any]] = None,
     ) -> MethodOutput:
+        processed_views = self._prepare_processed_views(views, rolling_state)
+
         best_params, tune_result = self._run_tuning(
-            views=views,
+            views=processed_views,
             config=config,
             do_tune=do_tune,
             rolling_state=rolling_state,
@@ -90,16 +92,16 @@ class BaseMethod:
         final_config = self._build_final_config(config, best_params)
 
         fit_result = self.trainer.fit(
-            views,
+            processed_views,
             final_config,
             mode="full",
             sample_weights=sample_weights,
         )
-        metrics_eval = self.evaluator.evaluate(fit_result.model, views)
+        metrics_eval = self.evaluator.evaluate(fit_result.model, processed_views)
 
         importance_vector, importance_df = self._extract_importance(
             model=fit_result.model,
-            feature_names=views.train.feature_names,
+            feature_names=processed_views.train.feature_names,
         )
         fit_result.feature_importance = importance_df
 
@@ -109,7 +111,7 @@ class BaseMethod:
             save_dir=save_dir,
         )
 
-        feature_names_hash = views.train.get_feature_names_hash()
+        feature_names_hash = processed_views.train.get_feature_names_hash()
         state_delta = self._build_state_delta(
             importance_vector=importance_vector,
             feature_names_hash=feature_names_hash,
@@ -126,6 +128,33 @@ class BaseMethod:
             fit_result=fit_result,
             state_delta=state_delta,
             model_artifacts=model_artifacts,
+        )
+
+    def _prepare_processed_views(
+        self,
+        views: Union[SplitViews, ProcessedViews],
+        rolling_state: Optional["RollingState"],
+    ) -> ProcessedViews:
+        if isinstance(views, ProcessedViews):
+            return views
+
+        transform_pipeline = self.transform_pipeline
+        if transform_pipeline is not None:
+            if not hasattr(transform_pipeline, "fit_transform_views"):
+                raise TypeError(
+                    "transform_pipeline must implement fit_transform_views(views, rolling_state=...)."
+                )
+            processed_views, _ = transform_pipeline.fit_transform_views(
+                views,
+                rolling_state=rolling_state,
+            )
+            return processed_views
+
+        return ProcessedViews(
+            train=views.train,
+            val=views.val,
+            test=views.test,
+            split_spec=views.split_spec,
         )
 
     def _run_tuning(

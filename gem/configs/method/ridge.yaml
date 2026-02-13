@@ -1,0 +1,9 @@
+defaults:
+  - model: ridge
+  - train_config: ridge
+  - experiment_config: sklearn
+  - trainer: ridge
+  - evaluator: regression
+  - importance_extractor: sklearn
+  - transform_pipeline: defaults
+  - _self_

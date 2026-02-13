@@ -1,0 +1,9 @@
+defaults:
+  - model: ard
+  - train_config: ard
+  - experiment_config: sklearn
+  - trainer: ard
+  - evaluator: regression
+  - importance_extractor: sklearn
+  - transform_pipeline: defaults
+  - _self_

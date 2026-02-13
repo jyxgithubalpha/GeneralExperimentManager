@@ -1,0 +1,9 @@
+defaults:
+  - model: huber
+  - train_config: huber
+  - experiment_config: sklearn
+  - trainer: huber
+  - evaluator: regression
+  - importance_extractor: sklearn
+  - transform_pipeline: defaults
+  - _self_

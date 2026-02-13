@@ -1,0 +1,3 @@
+# Torch MLP model placeholder
+_target_: gem.method.torch.TorchTabularTrainer
+model_type: mlp

@@ -9,16 +9,15 @@ Architecture design:
 
 import pickle
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
-from enum import Enum
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import polars as pl
 
-from ..data.data_dataclasses import SplitSpec
+from ..data.data_dataclasses import SplitSpec, SplitView
 from ..method.method_dataclasses import StateDelta, TrainConfig
 from ..utils.hash_utils import hash_feature_names
 
@@ -84,6 +83,18 @@ class ResourceRequest:
 
 
 @dataclass
+class VisualizationConfig:
+    enabled: bool = False
+    export_csv: bool = True
+    heatmap: bool = True
+    animation: bool = True
+    distribution: bool = True
+    show: bool = False
+    interval: int = 800
+    output_subdir: str = "plots"
+
+
+@dataclass
 class ExperimentConfig:
     """
     Experiment configuration
@@ -101,6 +112,7 @@ class ExperimentConfig:
     num_gpus: Optional[int] = None
     use_ray: bool = False
     resource_request: Optional[ResourceRequest] = None
+    visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
 
     def __post_init__(self) -> None:
         if self.n_trials < 0:
@@ -109,6 +121,8 @@ class ExperimentConfig:
             raise ValueError(
                 f"parallel_trials must be > 0, got {self.parallel_trials}"
             )
+        if self.state_policy is None:
+            self.state_policy = StatePolicyConfig()
 
 
 @dataclass
@@ -291,8 +305,19 @@ class SampleWeightState(BaseState):
                 for i, ind in enumerate(industries):
                     if ind in self.industry_weights:
                         weights[i] *= self.industry_weights[ind]
-        
+
         return weights
+
+    def get_weights_for_view(
+        self,
+        view: SplitView,
+        industry_col: str = "industry",
+    ) -> np.ndarray:
+        return self.get_sample_weight(
+            keys=view.keys,
+            group=view.group if view.group is not None else view.extra,
+            industry_col=industry_col,
+        )
 
 
 @dataclass

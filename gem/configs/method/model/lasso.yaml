@@ -1,0 +1,3 @@
+# Lasso model placeholder
+_target_: sklearn.linear_model.Lasso
+alpha: 0.01

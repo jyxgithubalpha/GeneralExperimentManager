@@ -2,4 +2,7 @@ _target_: gem.data.SourceSpec
 name: fac
 format: feather
 path: C:/Users/123/data/feather/fac/fac20251017.fea
+layout: tabular
+date_col: date
+code_col: code
 # path: /project/model_share/fac_hy/share_1/factor_data/fac20251017/fac20251017.fea

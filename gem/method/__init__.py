@@ -1,110 +1,87 @@
 """
-Method module - 训练方法组件
-
-包含:
-- base/: 基类定义 (BaseTrainer, BaseTuner, BaseEvaluator, BaseImportanceExtractor, BaseParamSpace, Method)
-- lgb/: LightGBM 实现
-- method_dataclasses: 训练相关数据类
-- component_factory: 组件注册器
-
-流程:
-1. 从 SplitViews 利用 train/val 计算 X/y 的阈值, 均值, std 等 (StatsCalculator)
-2. 对 train/val/test 做 transform 变换 (BaseTransformPipeline)
-3. 在 adapter 里把数据转化成 numpy 为基础的 ray data (RayDataAdapter)
-4. 得到 numpy 数据然后变换成 lgb.dataset (LightGBMAdapter)
-5. 使用 RollingState 中前面已有的超参数作为起点进行搜索训练 (LightGBMTuner)
-6. 使用 ray tune 和 optuna 结合搜索
-7. 使用 ray trainer 和 lgb trainer 结合来训练 (LightGBMTrainer)
-8. 评估并且根据结果更新状态 (BaseMethod.update_rolling_state)
+Method module public exports for the main (LightGBM-first) path.
 """
+
 from .base import (
-    BaseTrainer,
+    BaseAdapter,
     BaseEvaluator,
     BaseImportanceExtractor,
-    BaseTuner,
-    BaseParamSpace,
     BaseMethod,
-    MethodComponents,
-    BaseAdapter,
-    RayDataAdapter,
-    BaseTransformPipeline,
-    FittedTransformPipeline,
+    BaseParamSpace,
+    BaseTrainer,
     BaseTransform,
-    TransformContext,
-    FillNaNTransform,
-    WinsorizeTransform,
-    StandardizeTransform,
-    RankTransform,
+    BaseTransformPipeline,
+    BaseTuner,
     FeatureWeightTransform,
+    FillNaNTransform,
+    FittedTransformPipeline,
+    MethodComponents,
+    RankTransform,
+    RayDataAdapter,
+    StandardizeTransform,
     StatsCalculator,
+    TransformContext,
+    WinsorizeTransform,
 )
+from .common import RegressionEvaluator
 from .lgb import (
-    LightGBMTrainer,
-    LightGBMEvaluator,
+    LightGBMAdapter,
     LightGBMImportanceExtractor,
     LightGBMParamSpace,
+    LightGBMTrainer,
     LightGBMTuner,
-    LightGBMAdapter,
 )
 from .method_dataclasses import (
-    TransformState,
-    TransformStats,
+    EvalResult,
+    FitResult,
+    MethodOutput,
     RayDataBundle,
     RayDataViews,
-    TuneConfig,
-    TrainConfig,
-    TuneResult,
-    FitResult,
-    EvalResult,
-    MethodOutput,
     StateDelta,
+    TrainConfig,
+    TransformState,
+    TransformStats,
+    TuneConfig,
+    TuneResult,
 )
-from .component_factory import ComponentRegistry
 from .method_factory import MethodFactory
 
 __all__ = [
-    # Base classes
-    "BaseTrainer",
+    "BaseAdapter",
     "BaseEvaluator",
     "BaseImportanceExtractor",
-    "BaseTuner",
-    "BaseParamSpace",
     "BaseMethod",
-    "MethodComponents",
-    # Adapters
-    "BaseAdapter",
-    "RayDataAdapter",
-    # Transform
-    "BaseTransformPipeline",
-    "FittedTransformPipeline",
+    "BaseParamSpace",
+    "BaseTrainer",
     "BaseTransform",
-    "TransformContext",
-    "FillNaNTransform",
-    "WinsorizeTransform",
-    "StandardizeTransform",
-    "RankTransform",
+    "BaseTransformPipeline",
+    "BaseTuner",
     "FeatureWeightTransform",
+    "FillNaNTransform",
+    "FittedTransformPipeline",
+    "MethodComponents",
+    "RankTransform",
+    "RayDataAdapter",
+    "StandardizeTransform",
     "StatsCalculator",
-    # LightGBM implementations
-    "LightGBMTrainer",
-    "LightGBMEvaluator",
+    "TransformContext",
+    "WinsorizeTransform",
+    "LightGBMAdapter",
     "LightGBMImportanceExtractor",
     "LightGBMParamSpace",
+    "LightGBMTrainer",
     "LightGBMTuner",
-    "LightGBMAdapter",
-    # Dataclasses
-    "TransformState",
-    "TransformStats",
+    "RegressionEvaluator",
+    "EvalResult",
+    "FitResult",
+    "MethodOutput",
     "RayDataBundle",
     "RayDataViews",
-    "TuneConfig",
-    "TrainConfig",
-    "TuneResult",
-    "FitResult",
-    "EvalResult",
-    "MethodOutput",
     "StateDelta",
-    # Factory
-    "ComponentRegistry",
+    "TrainConfig",
+    "TransformState",
+    "TransformStats",
+    "TuneConfig",
+    "TuneResult",
     "MethodFactory",
 ]

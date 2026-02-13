@@ -1,0 +1,10 @@
+# Torch FT-Transformer training configuration
+_target_: gem.method.method_dataclasses.TrainConfig
+params:
+  use_gpu: true
+num_boost_round: 1
+early_stopping_rounds: 1
+feval_names: ["mse"]
+objective_name: "regression"
+seed: 42
+verbose_eval: 0

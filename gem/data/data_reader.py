@@ -37,9 +37,24 @@ class DataReader(ABC):
         }
 
     @staticmethod
-    def _standardize_columns(df: pl.DataFrame) -> pl.DataFrame:
-        if "Code" in df.columns and "code" not in df.columns:
-            df = df.rename({"Code": "code"})
+    def _standardize_columns(
+        df: pl.DataFrame,
+        *,
+        date_col: str = "date",
+        code_col: str = "code",
+        rename_map: Optional[Dict[str, str]] = None,
+    ) -> pl.DataFrame:
+        rename_ops: Dict[str, str] = {}
+        if rename_map:
+            rename_ops.update(rename_map)
+        if "Code" in df.columns and code_col == "code" and "code" not in df.columns:
+            rename_ops["Code"] = "code"
+        if date_col in df.columns and date_col != "date":
+            rename_ops[date_col] = "date"
+        if code_col in df.columns and code_col != "code":
+            rename_ops[code_col] = "code"
+        if rename_ops:
+            df = df.rename(rename_ops)
 
         if "date" in df.columns and "code" in df.columns:
             other_cols = [c for c in df.columns if c not in ("date", "code")]
@@ -53,22 +68,26 @@ class DataReader(ABC):
 
 
 class FeatherReader(DataReader):
-    _PIVOT_FROM_INDEX = {"ret", "liquidity"}
-    _PIVOT_FROM_DATE = {
-        "score",
-        "benchmark",
-        "bench1",
-        "bench2",
-        "bench3",
-        "bench4",
-        "bench5",
-        "bench6",
-    }
-
     def _filter_date_range(self, df: pl.DataFrame, date_start: int, date_end: int) -> pl.DataFrame:
         if "date" not in df.columns:
             return df
         return df.filter((pl.col("date") >= date_start) & (pl.col("date") <= date_end))
+
+    @staticmethod
+    def _resolve_value_col(source_spec: SourceSpec) -> str:
+        if source_spec.value_col:
+            return source_spec.value_col
+        return f"{source_spec.name}_value"
+
+    def _empty_frame_for_source(self, source_spec: SourceSpec) -> pl.DataFrame:
+        schema: Dict[str, pl.DataType] = {
+            "date": pl.Int32,
+            "code": pl.Utf8,
+        }
+        value_col = source_spec.value_col
+        if value_col:
+            schema[value_col] = pl.Float32
+        return pl.DataFrame(schema=schema)
 
     def _process_dataframe(
         self,
@@ -77,32 +96,53 @@ class FeatherReader(DataReader):
         date_start: int,
         date_end: int,
     ) -> pl.DataFrame:
-        source_name = source_spec.name
+        layout = (source_spec.layout or "tabular").lower()
+        pivot = (source_spec.pivot or "").lower()
+        date_col = source_spec.date_col or "date"
+        code_col = source_spec.code_col or "code"
+        value_col = self._resolve_value_col(source_spec)
+        index_col = source_spec.index_col or "index"
 
-        if source_name == "fac":
-            df = df.with_columns(pl.col("date").cast(pl.Int32))
-            df = self._filter_date_range(df, date_start, date_end)
-
-        elif source_name in self._PIVOT_FROM_INDEX:
-            df = df.unpivot(
-                index=["index"],
-                variable_name="code",
-                value_name=f"{source_name}_value",
+        if layout == "wide":
+            if pivot == "from_index":
+                if index_col not in df.columns:
+                    raise ValueError(
+                        f"Source '{source_spec.name}' expects index_col '{index_col}' for pivot 'from_index'."
+                    )
+                df = df.unpivot(
+                    index=[index_col],
+                    variable_name=code_col,
+                    value_name=value_col,
+                )
+                if index_col != date_col:
+                    df = df.rename({index_col: date_col})
+            elif pivot == "from_date":
+                if date_col not in df.columns:
+                    raise ValueError(
+                        f"Source '{source_spec.name}' expects date_col '{date_col}' for pivot 'from_date'."
+                    )
+                df = df.unpivot(
+                    index=[date_col],
+                    variable_name=code_col,
+                    value_name=value_col,
+                )
+            else:
+                raise ValueError(
+                    f"Source '{source_spec.name}' has layout='wide' but unsupported pivot='{source_spec.pivot}'. "
+                    "Expected one of: from_index, from_date."
+                )
+        elif layout not in {"tabular", "long"}:
+            raise ValueError(
+                f"Unsupported layout '{source_spec.layout}' for source '{source_spec.name}'."
             )
-            df = df.rename({"index": "date"})
-            df = df.with_columns(pl.col("date").cast(pl.Int32))
-            df = self._filter_date_range(df, date_start, date_end)
 
-        elif source_name in self._PIVOT_FROM_DATE:
-            df = df.unpivot(
-                index=["date"],
-                variable_name="code",
-                value_name=f"{source_name}_value",
-            )
-            df = df.with_columns(pl.col("date").cast(pl.Int32))
-            df = self._filter_date_range(df, date_start, date_end)
-
-        return self._standardize_columns(df)
+        df = self._standardize_columns(
+            df,
+            date_col=date_col,
+            code_col=code_col,
+            rename_map=source_spec.rename_map,
+        )
+        return self._filter_date_range(df, date_start, date_end)
 
     def read(
         self,
@@ -122,10 +162,9 @@ class FeatherReader(DataReader):
             batch = feather_reader.get_record_batch(batch_idx)
             batch_df = pl.from_arrow(batch)
             processed_batch = self._process_dataframe(batch_df, source_spec, date_start, date_end)
-            if processed_batch.height > 0:
-                batches.append(processed_batch)
+            batches.append(processed_batch)
 
         if not batches:
-            return pl.DataFrame()
+            return self._empty_frame_for_source(source_spec)
 
-        return pl.concat(batches)
+        return pl.concat(batches, how="vertical_relaxed")

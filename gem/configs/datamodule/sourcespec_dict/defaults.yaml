@@ -4,6 +4,7 @@ defaults:
   - SourceSpec@ret_raw: ret_raw
   - SourceSpec@liquidity: liquidity
   - SourceSpec@score: score
+  - SourceSpec@benchmark: benchmark
   - SourceSpec@bench1: bench1
   - SourceSpec@bench2: bench2
   - SourceSpec@bench3: bench3

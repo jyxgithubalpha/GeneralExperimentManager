@@ -1,0 +1,4 @@
+# Huber model placeholder
+_target_: sklearn.linear_model.HuberRegressor
+alpha: 0.0001
+epsilon: 1.35

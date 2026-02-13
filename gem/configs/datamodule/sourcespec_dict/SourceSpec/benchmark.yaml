@@ -2,4 +2,9 @@ _target_: gem.data.SourceSpec
 name: benchmark
 format: feather
 path: C:/Users/123/data/feather/benchmark/benchmark_1_0819.fea
+layout: wide
+pivot: from_date
+date_col: date
+code_col: code
+value_col: benchmark_value
 # path: /project/model_share/fac_hy/score_file/benchmark_1_0819.fea

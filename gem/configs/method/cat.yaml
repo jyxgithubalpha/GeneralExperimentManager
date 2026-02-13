@@ -1,0 +1,11 @@
+defaults:
+  - model: cat
+  - train_config: cat
+  - experiment_config: cat
+  - trainer: cat
+  - evaluator: regression
+  - importance_extractor: cat
+  - tuner: cat
+  - adapter: cat
+  - transform_pipeline: defaults
+  - _self_

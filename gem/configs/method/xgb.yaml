@@ -1,0 +1,11 @@
+defaults:
+  - model: xgb
+  - train_config: xgb
+  - experiment_config: xgb
+  - trainer: xgb
+  - evaluator: regression
+  - importance_extractor: xgb
+  - tuner: xgb
+  - adapter: xgb
+  - transform_pipeline: defaults
+  - _self_

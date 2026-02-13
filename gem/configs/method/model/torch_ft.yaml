@@ -1,0 +1,3 @@
+# Torch FT-Transformer model placeholder
+_target_: gem.method.torch.TorchTabularTrainer
+model_type: ft_transformer

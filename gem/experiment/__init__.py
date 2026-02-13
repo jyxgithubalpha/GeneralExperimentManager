@@ -10,6 +10,7 @@ Experiment module - 实验管理
 from .experiment_manager import ExperimentManager
 from .experiment_dataclasses import (
     ExperimentConfig,
+    VisualizationConfig,
     StatePolicyConfig,
     SplitTask,
     SplitResult,
@@ -25,6 +26,7 @@ from .task_dag import DynamicTaskDAG, DagSubmission
 __all__ = [
     "ExperimentManager",
     "ExperimentConfig",
+    "VisualizationConfig",
     "StatePolicyConfig",
     "SplitTask",
     "SplitResult",

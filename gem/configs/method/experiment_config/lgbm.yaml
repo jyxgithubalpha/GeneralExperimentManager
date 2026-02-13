@@ -18,3 +18,12 @@ resource_request:
   final_train_gpus: 0
   trial_cpus: 8
   final_train_cpus: 8
+visualization:
+  enabled: false
+  export_csv: true
+  heatmap: true
+  animation: true
+  distribution: true
+  show: false
+  interval: 800
+  output_subdir: plots

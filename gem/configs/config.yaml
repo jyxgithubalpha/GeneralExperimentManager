@@ -1,7 +1,7 @@
 defaults:
   - splitgenerator: RollingWindowSplitGenerator
   - datamodule: defaults
-  - method: lgbm
+  - method: lgb_main
   - _self_
 
 seed: 42

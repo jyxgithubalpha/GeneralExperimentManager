@@ -1,0 +1,9 @@
+defaults:
+  - model: quantile
+  - train_config: quantile
+  - experiment_config: sklearn
+  - trainer: quantile
+  - evaluator: regression
+  - importance_extractor: sklearn
+  - transform_pipeline: defaults
+  - _self_

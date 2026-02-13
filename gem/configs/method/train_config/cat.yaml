@@ -1,0 +1,18 @@
+# CatBoost training configuration
+_target_: gem.method.method_dataclasses.TrainConfig
+
+params:
+  loss_function: "RMSE"
+  learning_rate: 0.05
+  depth: 6
+  l2_leaf_reg: 3.0
+  random_strength: 1.0
+  rsm: 0.8
+  use_gpu: true
+
+num_boost_round: 200
+early_stopping_rounds: 50
+feval_names: ["RMSE"]
+objective_name: "regression"
+seed: 42
+verbose_eval: 1

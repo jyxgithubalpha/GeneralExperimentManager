@@ -7,9 +7,7 @@ from __future__ import annotations
 import traceback
 from typing import Dict, List, Optional, Tuple
 
-from hydra.utils import instantiate
-
-from ..data.data_dataclasses import GlobalStore, ProcessedViews, SplitViews
+from ..data.data_dataclasses import GlobalStore, SplitViews
 from ..method.method_factory import MethodFactory
 from .experiment_dataclasses import RollingState, SplitResult, SplitTask
 from .run_context import RunContext
@@ -37,11 +35,10 @@ class SplitRunner:
                     skip_reason=skip_reason,
                 )
 
-            processed_views = self._prepare_processed_views(split_views, ctx, rolling_state)
             method = self._build_method(ctx, split_id)
 
             method_output = method.run(
-                views=processed_views,
+                views=split_views,
                 config=ctx.train_config,
                 do_tune=ctx.do_tune and (method.tuner is not None),
                 save_dir=ctx.split_dir(split_id),
@@ -63,8 +60,8 @@ class SplitRunner:
                 best_objective=state_delta.best_objective,
                 state_delta=state_delta,
                 test_predictions=test_predictions,
-                test_keys=processed_views.test.keys,
-                test_extra=processed_views.test.extra,
+                test_keys=split_views.test.keys,
+                test_extra=split_views.test.extra,
                 failed=False,
             )
 
@@ -112,44 +109,6 @@ class SplitRunner:
         )
         return views, None
 
-    def _prepare_processed_views(
-        self,
-        split_views: SplitViews,
-        ctx: RunContext,
-        rolling_state: Optional[RollingState],
-    ) -> ProcessedViews:
-        transform_pipeline = None
-        if ctx.transform_config is not None:
-            transform_pipeline = instantiate(ctx.transform_config)
-
-        if transform_pipeline is not None:
-            if hasattr(transform_pipeline, "fit_transform_views"):
-                processed_views, _ = transform_pipeline.fit_transform_views(
-                    split_views,
-                    rolling_state=rolling_state,
-                )
-                return processed_views
-
-            # Backward compatibility for old transform pipelines.
-            fitted_pipeline = transform_pipeline.fit_on_train(
-                split_views.train,
-                rolling_state=rolling_state,
-            )
-            transformed_views = fitted_pipeline.transform_views(split_views)
-            return ProcessedViews(
-                train=transformed_views.train,
-                val=transformed_views.val,
-                test=transformed_views.test,
-                split_spec=split_views.split_spec,
-            )
-
-        return ProcessedViews(
-            train=split_views.train,
-            val=split_views.val,
-            test=split_views.test,
-            split_spec=split_views.split_spec,
-        )
-
     def _build_method(self, ctx: RunContext, split_id: int):
         return MethodFactory.build(
             method_config=ctx.method_config,
@@ -161,6 +120,7 @@ class SplitRunner:
             base_seed=ctx.seed,
             split_id=split_id,
             adapter_config=ctx.adapter_config,
+            transform_config=ctx.transform_config,
         )
 
     def _flatten_metrics(self, metrics_eval: Dict[str, object]) -> Dict[str, float]:
@@ -169,7 +129,5 @@ class SplitRunner:
         for mode, eval_result in metrics_eval.items():
             for name, value in eval_result.metrics.items():
                 metrics_flat[f"{mode}_{name}"] = value
-                # Keep a backward-compatible unprefixed key for first occurrence.
-                metrics_flat.setdefault(name, value)
 
         return metrics_flat

@@ -1,7 +1,8 @@
 ﻿"""
-Component Registry - Component registry
-Provides unified interface to register and create component instances for different machine learning frameworks
-Supports dynamic registration of new component implementations
+Legacy component registry.
+
+Main runtime path uses Hydra-driven ``MethodFactory`` directly.
+This module is retained for legacy/manual usage only.
 """
 
 
@@ -259,6 +260,5 @@ def register_default_components(force: bool = False) -> None:
     _DEFAULT_COMPONENTS_REGISTERED = True
 
 
-# Backward-compatible import-time registration; now idempotent.
-register_default_components()
+# No import-time side effects on the main path.
 

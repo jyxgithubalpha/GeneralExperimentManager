@@ -117,20 +117,20 @@ class RayExecutor(BaseExecutor):
     def _create_remote_funcs(self) -> None:
         ray = self._ray
 
-        @ray.remote(num_gpus=0)
+        @ray.remote
         def run_split_remote(task, global_store, state, ctx):
             from .split_runner import SplitRunner
 
             runner = SplitRunner()
             return runner.run(task, global_store, state, ctx)
 
-        @ray.remote(num_gpus=0)
+        @ray.remote
         def update_state_remote(state, result, config):
             from .state_policy import update_state
 
             return update_state(state, result, config)
 
-        @ray.remote(num_gpus=0)
+        @ray.remote
         def update_state_from_bucket_remote(state, results, config):
             import ray as _ray
             from .state_policy import update_state_from_bucket_results
@@ -154,7 +154,20 @@ class RayExecutor(BaseExecutor):
         state_ref: Any,
         ctx: RunContext,
     ) -> Any:
-        return self._remote_funcs["run_split"].remote(task, global_store_ref, state_ref, ctx)
+        options = {}
+        resource_request = getattr(task, "resource_request", None)
+        if resource_request is not None:
+            trial_gpus = getattr(resource_request, "trial_gpus", None)
+            trial_cpus = getattr(resource_request, "trial_cpus", None)
+            if trial_gpus is not None and float(trial_gpus) > 0:
+                options["num_gpus"] = float(trial_gpus)
+            if trial_cpus is not None and float(trial_cpus) > 0:
+                options["num_cpus"] = float(trial_cpus)
+
+        remote_func = self._remote_funcs["run_split"]
+        if options:
+            remote_func = remote_func.options(**options)
+        return remote_func.remote(task, global_store_ref, state_ref, ctx)
 
     def get(self, refs: Any) -> Any:
         return self._ray.get(refs)

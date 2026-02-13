@@ -1,0 +1,10 @@
+# Ridge regression training configuration
+_target_: gem.method.method_dataclasses.TrainConfig
+params:
+  alpha: 1.0
+num_boost_round: 1
+early_stopping_rounds: 1
+feval_names: ["pearsonr_ic"]
+objective_name: "regression"
+seed: 42
+verbose_eval: 0

@@ -42,6 +42,13 @@ class SourceSpec:
     name: str
     format: str = "feather"
     path: str = ""
+    layout: str = "tabular"
+    date_col: str = "date"
+    code_col: str = "code"
+    pivot: Optional[str] = None
+    index_col: Optional[str] = None
+    value_col: Optional[str] = None
+    rename_map: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

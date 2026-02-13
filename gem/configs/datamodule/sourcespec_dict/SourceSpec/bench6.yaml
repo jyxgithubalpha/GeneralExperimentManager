@@ -2,4 +2,9 @@ _target_: gem.data.SourceSpec
 name: bench6
 format: feather
 path: C:/Users/123/data/feather/benchmark/label1_bench6.fea
+layout: wide
+pivot: from_date
+date_col: date
+code_col: code
+value_col: bench6_value
 # path: /home/user165/workspace/data/label1_bench6.fea

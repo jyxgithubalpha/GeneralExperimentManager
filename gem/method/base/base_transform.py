@@ -22,7 +22,25 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Tuple, TYPE_CHECKING
 
+import numpy as np
+import polars as pl
+
+from ...data.data_dataclasses import ProcessedViews, SplitView, SplitViews
+from ..method_dataclasses import RayDataBundle, RayDataViews, TransformState, TransformStats
+
+if TYPE_CHECKING:
+    from ...experiment.experiment_dataclasses import RollingState
+
 TransformContext = Dict[str, Any]
+
+
+def extract_date_keys(
+    keys: Optional[pl.DataFrame],
+    date_col: str = "date",
+) -> Optional[np.ndarray]:
+    if keys is None or date_col not in keys.columns:
+        return None
+    return keys[date_col].to_numpy()
 
 
 class BaseTransform(ABC):
@@ -475,11 +493,9 @@ class FittedTransformPipeline:
         Returns:
             Transformed SplitViews
         """
-        from ...data.data_dataclasses import SplitView, SplitViews
-        
-        train_keys = views.train.keys.to_numpy()[:, 0] if views.train.keys is not None else None
-        val_keys = views.val.keys.to_numpy()[:, 0] if views.val.keys is not None else None
-        test_keys = views.test.keys.to_numpy()[:, 0] if views.test.keys is not None else None
+        train_keys = extract_date_keys(views.train.keys)
+        val_keys = extract_date_keys(views.val.keys)
+        test_keys = extract_date_keys(views.test.keys)
         
         train_X, train_y = self.transform(views.train.X, views.train.y, train_keys)
         val_X, val_y = self.transform(views.val.X, views.val.y, val_keys)
@@ -599,7 +615,7 @@ class BaseTransformPipeline:
             context = rolling_state.to_transform_context()
         self.set_context(context)
         
-        train_keys = train_view.keys.to_numpy()[:, 0] if train_view.keys is not None else None
+        train_keys = extract_date_keys(train_view.keys)
         self.fit(train_view.X, train_view.y, train_keys)
         
         return FittedTransformPipeline(
@@ -622,15 +638,13 @@ class BaseTransformPipeline:
         
         Fit on train, then transform train/val/test
         """
-        from ...data.data_dataclasses import SplitView, SplitViews
-        
         # Set context
         if context is not None:
             self.set_context(context)
         
-        train_keys = views.train.keys.to_numpy()[:, 0] if views.train.keys is not None else None
-        val_keys = views.val.keys.to_numpy()[:, 0] if views.val.keys is not None else None
-        test_keys = views.test.keys.to_numpy()[:, 0] if views.test.keys is not None else None
+        train_keys = extract_date_keys(views.train.keys)
+        val_keys = extract_date_keys(views.val.keys)
+        test_keys = extract_date_keys(views.test.keys)
         
         self.fit(views.train.X, views.train.y, train_keys)
         
@@ -727,21 +741,6 @@ class BaseTransformPipeline:
         
         return processed, stats
 
-    # Backward-compatible alias kept for existing external calls.
-    def fit_transform(
-        self,
-        views: "SplitViews",
-        rolling_state: Optional["RollingState"] = None,
-        lower_quantile: float = 0.01,
-        upper_quantile: float = 0.99,
-    ) -> Tuple["ProcessedViews", TransformStats]:
-        return self.fit_transform_views(
-            views=views,
-            rolling_state=rolling_state,
-            lower_quantile=lower_quantile,
-            upper_quantile=upper_quantile,
-        )
-    
     def _collect_all_stats(self) -> Dict[str, Any]:
         """Collect statistics from all transforms"""
         all_stats = {}
@@ -778,7 +777,7 @@ class BaseTransformPipeline:
         if include_sample_weight and rolling_state is not None:
             from ...experiment.experiment_dataclasses import SampleWeightState
             weight_state = rolling_state.get_state(SampleWeightState)
-            if weight_state is not None and hasattr(weight_state, 'get_weights_for_view'):
+            if weight_state is not None:
                 sample_weight_train = weight_state.get_weights_for_view(processed.train)
                 sample_weight_val = weight_state.get_weights_for_view(processed.val)
                 sample_weight_test = weight_state.get_weights_for_view(processed.test)

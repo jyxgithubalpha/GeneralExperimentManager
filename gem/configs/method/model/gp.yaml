@@ -1,0 +1,4 @@
+# Gaussian Process model placeholder
+_target_: sklearn.gaussian_process.GaussianProcessRegressor
+alpha: 1e-6
+normalize_y: true

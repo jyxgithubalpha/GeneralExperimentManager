@@ -1,0 +1,9 @@
+defaults:
+  - model: gp
+  - train_config: gp
+  - experiment_config: sklearn
+  - trainer: gp
+  - evaluator: regression
+  - importance_extractor: sklearn
+  - transform_pipeline: defaults
+  - _self_

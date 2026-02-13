@@ -5,6 +5,7 @@ Experiment manager: split planning, execution and reporting.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,8 @@ from .executor import BaseExecutor, LocalExecutor, RayExecutor
 from .experiment_dataclasses import ExperimentConfig, RollingState, SplitResult, SplitTask
 from .run_context import RunContext
 from .task_dag import DynamicTaskDAG
+
+log = logging.getLogger(__name__)
 
 
 class ExperimentManager:
@@ -73,43 +76,43 @@ class ExperimentManager:
         output_dir = self._resolve_output_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"\n{'=' * 60}")
-        print(f"Starting Experiment: {self.experiment_config.name}")
-        print(f"Output: {output_dir}")
-        print(f"{'=' * 60}\n")
+        log.info("%s", "=" * 60)
+        log.info("Starting Experiment: %s", self.experiment_config.name)
+        log.info("Output: %s", output_dir)
+        log.info("%s", "=" * 60)
 
-        print("[1/6] Generating splits...")
+        log.info("[1/6] Generating splits...")
         gen_output = self.split_generator.generate()
         self._splitspec_list = gen_output.splitspec_list
-        print(f"  - Generated {len(gen_output.splitspec_list)} splits")
+        log.info("  - Generated %d splits", len(gen_output.splitspec_list))
 
-        print("\n[2/6] Preparing global store...")
+        log.info("[2/6] Preparing global store...")
         self._global_store = self.data_module.prepare_global_store(
             gen_output.date_start,
             gen_output.date_end,
         )
-        print(f"  - Samples: {self._global_store.n_samples}")
-        print(f"  - Features: {self._global_store.n_features}")
+        log.info("  - Samples: %d", self._global_store.n_samples)
+        log.info("  - Features: %d", self._global_store.n_features)
 
-        print("\n[3/6] Building tasks...")
+        log.info("[3/6] Building tasks...")
         tasks = self._build_tasks(gen_output.splitspec_list)
-        print(f"  - Built {len(tasks)} tasks")
+        log.info("  - Built %d tasks", len(tasks))
 
-        print("\n[4/6] Initializing state...")
+        log.info("[4/6] Initializing state...")
         init_state = RollingState()
 
         mode = self.experiment_config.state_policy.mode
-        print(f"\n[5/6] Executing with policy: {mode}")
+        log.info("[5/6] Executing with policy: %s", mode)
         results = self._execute(tasks, init_state, output_dir)
         self._results = {result.split_id: result for result in results}
 
-        print("\n[6/6] Generating report...")
+        log.info("[6/6] Generating report...")
         self._generate_report(output_dir)
 
         elapsed = time.time() - self._start_time
-        print(f"\n{'=' * 60}")
-        print(f"Experiment completed in {elapsed:.1f}s")
-        print(f"{'=' * 60}\n")
+        log.info("%s", "=" * 60)
+        log.info("Experiment completed in %.1fs", elapsed)
+        log.info("%s", "=" * 60)
 
         return self._results
 
@@ -200,7 +203,6 @@ class ExperimentManager:
         dag = DynamicTaskDAG(mode=mode, policy_config=policy_config)
         submission = dag.submit(
             executor,
-            tasks,
             execution_plan,
             task_map,
             global_ref,
@@ -211,44 +213,44 @@ class ExperimentManager:
         results = executor.get(result_refs) if self.use_ray else result_refs
 
         for split_id, result in zip(submission.split_ids_in_order, results):
-            print(f"    Completed split {split_id}")
+            log.info("    Completed split %s", split_id)
             self._print_split_result(result)
 
         return results
 
     def _print_schedule_overview(self, mode: str, execution_plan) -> None:
         if mode == "none":
-            print("  - DAG mode: NONE (all splits are independent nodes)")
+            log.info("  - DAG mode: NONE (all splits are independent nodes)")
             if execution_plan:
-                print(f"    Parallel split count: {len(execution_plan[0])}")
+                log.info("    Parallel split count: %d", len(execution_plan[0]))
             return
         if mode == "per_split":
-            print("  - DAG mode: PER_SPLIT (state chain)")
-            print(f"    Serial stages: {len(execution_plan)}")
+            log.info("  - DAG mode: PER_SPLIT (state chain)")
+            log.info("    Serial stages: %d", len(execution_plan))
             return
         if mode == "bucket":
-            print("  - DAG mode: BUCKET (parallel-in-bucket + serial-across-buckets)")
+            log.info("  - DAG mode: BUCKET (parallel-in-bucket + serial-across-buckets)")
             for idx, bucket in enumerate(execution_plan, start=1):
-                print(f"    Bucket {idx}/{len(execution_plan)} -> {len(bucket)} splits")
+                log.info("    Bucket %d/%d -> %d splits", idx, len(execution_plan), len(bucket))
             return
-        print(f"  - DAG mode: {mode}")
+        log.info("  - DAG mode: %s", mode)
 
     def _print_split_result(self, result: SplitResult) -> None:
         if result.skipped:
-            print(f"      [SKIPPED] {result.skip_reason}")
+            log.info("      [SKIPPED] %s", result.skip_reason)
             return
         if result.failed:
             error_msg = result.error_message or "Unknown error"
-            print(f"      [FAILED] {error_msg[:160]}")
+            log.error("      [FAILED] %s", error_msg[:160])
             return
 
         if not result.metrics:
-            print("      [OK] No metrics")
+            log.info("      [OK] No metrics")
             return
 
         if "error" in result.metrics:
             error_msg = str(result.metrics["error"])[:160]
-            print(f"      [ERROR] {error_msg}")
+            log.error("      [ERROR] %s", error_msg)
             return
 
         items = list(result.metrics.items())[:3]
@@ -256,7 +258,7 @@ class ExperimentManager:
             f"{k}={v:.4f}" if isinstance(v, (int, float)) else f"{k}={v}"
             for k, v in items
         )
-        print(f"      [OK] {metrics_str}")
+        log.info("      [OK] %s", metrics_str)
 
     def _generate_report(self, output_dir: Path) -> None:
         rows = []
@@ -289,7 +291,7 @@ class ExperimentManager:
 
         csv_path = output_dir / "results_summary.csv"
         df.write_csv(csv_path)
-        print(f"  - Saved: {csv_path}")
+        log.info("  - Saved: %s", csv_path)
 
         config_path = output_dir / "config.json"
         config_dict = {
@@ -304,9 +306,9 @@ class ExperimentManager:
         }
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, default=str)
-        print(f"  - Saved: {config_path}")
+        log.info("  - Saved: %s", config_path)
 
         n_skipped = sum(1 for item in self._results.values() if item.skipped)
         n_failed = sum(1 for item in self._results.values() if item.failed)
         n_success = len(self._results) - n_skipped - n_failed
-        print(f"\n  Splits: {n_success} success, {n_skipped} skipped, {n_failed} failed")
+        log.info("  Splits: %d success, %d skipped, %d failed", n_success, n_skipped, n_failed)

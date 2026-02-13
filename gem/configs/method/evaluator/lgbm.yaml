@@ -1,4 +1,4 @@
-_target_: gem.method.lgb.LightGBMEvaluator
+_target_: gem.method.common.RegressionEvaluator
 metric_names:
   - pearsonr_ic
   - pearsonr_icir

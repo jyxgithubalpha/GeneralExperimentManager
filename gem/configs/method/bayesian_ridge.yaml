@@ -1,0 +1,9 @@
+defaults:
+  - model: bayesian_ridge
+  - train_config: bayesian_ridge
+  - experiment_config: sklearn
+  - trainer: bayesian_ridge
+  - evaluator: regression
+  - importance_extractor: sklearn
+  - transform_pipeline: defaults
+  - _self_
