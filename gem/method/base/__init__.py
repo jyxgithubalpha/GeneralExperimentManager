@@ -19,11 +19,12 @@ from .base_evaluator import BaseEvaluator
 from .base_importance_extractor import BaseImportanceExtractor
 from .base_tuner import BaseTuner
 from .base_param_space import BaseParamSpace
-from .base_method import BaseMethod
+from .base_method import BaseMethod, MethodComponents
 from .base_adapter import BaseAdapter, RayDataAdapter
 from .base_transform import (
     BaseTransform,
     BaseTransformPipeline,
+    FittedTransformPipeline,
     TransformContext,
     FillNaNTransform,
     WinsorizeTransform,
@@ -41,12 +42,14 @@ __all__ = [
     "BaseTuner",
     "BaseParamSpace",
     "BaseMethod",
+    "MethodComponents",
     # Adapters
     "BaseAdapter",
     "RayDataAdapter",
     # Transform
     "BaseTransform",
     "BaseTransformPipeline",
+    "FittedTransformPipeline",
     "TransformContext",
     "FillNaNTransform",
     "WinsorizeTransform",

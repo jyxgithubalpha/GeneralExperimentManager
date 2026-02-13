@@ -1,16 +1,15 @@
 """
 Importance Vector Visualization Module
 
-提供特征重要性向量的可视化功能，展示所有特征 importance 在 split 的变化。
-主要输出：
-1. CSV 数据文件 - 所有特征在所有 split 的 importance
-2. 全特征热力图 - 可视化所有特征随时间的变化
-3. 动画 - 动态展示特征重要性排名变化
+Provides visualization functionality for feature importance vectors, showing importance changes across splits.
+Main outputs:
+1. CSV data file - importance of all features across all splits
+2. Full feature heatmap - visualizes feature changes over time
+3. Animation - dynamically shows feature importance ranking changes
 """
 
 import numpy as np
 import polars as pl
-import pandas as pd  # kept for matplotlib compatibility
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from pathlib import Path
@@ -20,7 +19,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ImportanceFrame:
-    """单个 split 的 importance 数据"""
+    """Importance data for a single split"""
     split_id: int
     importance_vector: np.ndarray
     test_date_start: Optional[int] = None
@@ -28,7 +27,7 @@ class ImportanceFrame:
 
 
 class ImportanceVisualizer:
-    """特征重要性可视化器 - 支持所有特征"""
+    """Feature importance visualizer - supports all features"""
     
     def __init__(
         self,
@@ -37,8 +36,8 @@ class ImportanceVisualizer:
     ):
         """
         Args:
-            feature_names: 特征名列表
-            figsize: 图形大小
+            feature_names: Feature name list
+            figsize: Figure size
         """
         self.feature_names = feature_names
         self.figsize = figsize
@@ -50,7 +49,7 @@ class ImportanceVisualizer:
         results: Dict[int, Any],
         splitspec_list: Optional[List[Any]] = None,
     ) -> List[ImportanceFrame]:
-        """从 SplitResult 字典中提取 importance 数据"""
+        """Extract importance data from SplitResult dictionary"""
         self.frames = []
         
         spec_map = {}
@@ -83,19 +82,19 @@ class ImportanceVisualizer:
             )
             self.frames.append(frame)
         
-        # 构建 DataFrame
+        # Build DataFrame
         self._build_importance_dataframe()
         
         return self.frames
     
     def _get_feature_name(self, idx: int) -> str:
-        """获取特征名"""
+        """Get feature name"""
         if self.feature_names and idx < len(self.feature_names):
             return self.feature_names[idx]
         return f"F{idx}"
     
     def _build_importance_dataframe(self):
-        """构建完整的 importance DataFrame"""
+        """Build complete importance DataFrame"""
         if not self.frames:
             self._importance_df = None
             return
@@ -115,11 +114,11 @@ class ImportanceVisualizer:
         self._importance_df = pl.DataFrame(data)
     
     def get_importance_dataframe(self) -> Optional[pl.DataFrame]:
-        """获取完整的 importance DataFrame"""
+        """Get complete importance DataFrame"""
         return self._importance_df
     
     def export_to_csv(self, output_path: str):
-        """导出所有特征的 importance 到 CSV"""
+        """Export all feature importance to CSV"""
         if self._importance_df is None:
             print("No importance data to export")
             return
@@ -137,13 +136,13 @@ class ImportanceVisualizer:
         normalize: str = 'zscore',
     ):
         """
-        绘制所有特征的热力图
+        Plot heatmap for all features
         
         Args:
-            output_path: 输出文件路径
-            show: 是否显示图形
-            sort_by: 排序方式 ('mean', 'std', 'max', 'none')
-            normalize: 标准化方式 ('zscore', 'minmax', 'rank', 'none')
+            output_path: Output file path
+            show: Whether to show plot
+            sort_by: Sort method ('mean', 'std', 'max', 'none')
+            normalize: Normalization method ('zscore', 'minmax', 'rank', 'none')
         """
         if self._importance_df is None or self._importance_df.is_empty():
             print("No importance data to visualize")
@@ -152,44 +151,45 @@ class ImportanceVisualizer:
         plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
         plt.rcParams['axes.unicode_minus'] = False
         
-        df = self._importance_df.clone()
+        # Get numeric columns
+        numeric_cols = [c for c in self._importance_df.columns if c != 'feature']
+        values = self._importance_df.select(numeric_cols).to_numpy()
         
-        # 标准化 importance
+        # Normalize importance (by row/feature)
         if normalize == 'zscore':
-            # Z-score 标准化 (按特征)
-            df = (df.transpose() - df.transpose().mean()) / (df.transpose().std() + 1e-10)
-            df = df.transpose()
+            row_mean = np.mean(values, axis=1, keepdims=True)
+            row_std = np.std(values, axis=1, keepdims=True) + 1e-10
+            values = (values - row_mean) / row_std
         elif normalize == 'minmax':
-            # Min-Max 标准化 (按特征)
-            df = (df.transpose() - df.transpose().min()) / (df.transpose().max() - df.transpose().min() + 1e-10)
-            df = df.transpose()
+            row_min = np.min(values, axis=1, keepdims=True)
+            row_max = np.max(values, axis=1, keepdims=True)
+            values = (values - row_min) / (row_max - row_min + 1e-10)
         elif normalize == 'rank':
-            # 排名标准化 (按列/split)
-            df = df.rank(axis=0) / len(df)
-        # else: 'none' - 不做标准化
+            values = np.apply_along_axis(
+                lambda x: np.argsort(np.argsort(x)) / len(x), 
+                axis=0, arr=values
+            )
         
-        # 排序特征 (使用原始数据排序)
-        orig_df = self._importance_df
+        # Sort features (using original data for sorting)
+        orig_values = self._importance_df.select(numeric_cols).to_numpy()
         if sort_by == 'mean':
-            order = orig_df.mean(axis=1).sort(descending=True).to_list()
+            sort_idx = np.argsort(np.mean(orig_values, axis=1))[::-1]
         elif sort_by == 'std':
-            order = orig_df.std(axis=1).sort(descending=True).to_list()
+            sort_idx = np.argsort(np.std(orig_values, axis=1))[::-1]
         elif sort_by == 'max':
-            order = orig_df.max(axis=1).sort(descending=True).to_list()
+            sort_idx = np.argsort(np.max(orig_values, axis=1))[::-1]
         else:
-            order = list(range(len(orig_df)))
+            sort_idx = np.arange(len(orig_values))
         
-        # 计算合适的图形大小
-        n_features = df.height
-        n_splits = len(df.columns) - 1  # -1 for feature column
+        values = values[sort_idx]
+        
+        # Calculate appropriate figure size
+        n_features = values.shape[0]
+        n_splits = len(numeric_cols)
         fig_height = max(10, min(100, n_features * 0.05))
         fig_width = max(12, min(30, n_splits * 0.8))
         
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-        
-        # 获取数值列
-        numeric_cols = [c for c in df.columns if c != 'feature']
-        values = df.select(numeric_cols).to_numpy()
         
         im = ax.imshow(values, aspect='auto', cmap='YlOrRd')
         
@@ -225,16 +225,16 @@ class ImportanceVisualizer:
         sort_by: str = 'mean',
     ):
         """
-        创建所有特征 importance 变化的动画
+        Create animation of all feature importance changes
         
-        X轴: 因子名 (固定顺序)
-        Y轴: importance 强度
+        X-axis: Factor names (fixed order)
+        Y-axis: Importance intensity
         
         Args:
-            output_path: 输出路径
-            interval: 帧间隔 (毫秒)
-            show: 是否显示
-            sort_by: 特征排序方式 ('mean', 'std', 'max', 'none')
+            output_path: Output path
+            interval: Frame interval (milliseconds)
+            show: Whether to show
+            sort_by: Feature sort method ('mean', 'std', 'max', 'none')
         """
         if not self.frames:
             print("No importance frames to visualize")
@@ -245,7 +245,7 @@ class ImportanceVisualizer:
         
         n_features = len(self.frames[0].importance_vector)
         
-        # 确定特征顺序 (固定)
+        # Determine feature order (fixed)
         all_importance = np.stack([f.importance_vector for f in self.frames])
         mean_importance = np.mean(all_importance, axis=0)
         
@@ -258,29 +258,29 @@ class ImportanceVisualizer:
         else:
             feature_order = np.arange(n_features)
         
-        # 获取全局最大值
+        # Get global maximum
         max_val = np.max(all_importance) * 1.1
         
-        # 图形大小根据特征数调整
+        # Adjust figure size based on feature count
         fig_width = max(20, min(60, n_features * 0.02))
         fig, ax = plt.subplots(figsize=(fig_width, 8))
         
-        # X轴位置
+        # X-axis positions
         x_pos = np.arange(n_features)
         
-        # 初始化条形图
+        # Initialize bar chart
         bars = ax.bar(x_pos, np.zeros(n_features), width=0.8, color='steelblue', alpha=0.8)
         
-        # 设置坐标轴
+        # Set axes
         ax.set_ylim(0, max_val)
         ax.set_xlim(-0.5, n_features - 0.5)
         ax.set_ylabel('Importance', fontsize=12)
         ax.set_xlabel(f'Feature (sorted by {sort_by}, n={n_features})', fontsize=10)
         
-        # 不显示 X 轴标签，特征太多会拥挤
+        # Don't show X-axis labels, too many features would be crowded
         ax.set_xticks([])
         
-        # 添加 split 信息文本
+        # Add split information text
         info_text = ax.text(
             0.02, 0.95, '', 
             transform=ax.transAxes, 
@@ -298,13 +298,13 @@ class ImportanceVisualizer:
         
         def update(frame_idx):
             frame = self.frames[frame_idx]
-            # 按固定顺序获取 importance
+            # Get importance in fixed order
             importance = frame.importance_vector[feature_order]
             
             for bar, val in zip(bars, importance):
                 bar.set_height(val)
             
-            # 更新信息文本
+            # Update info text
             info_str = f"Split {frame.split_id}"
             if frame.test_date_start:
                 info_str = f"Date: {frame.test_date_start}"
@@ -343,7 +343,7 @@ class ImportanceVisualizer:
         output_path: Optional[str] = None,
         show: bool = True,
     ):
-        """绘制每个 split 的 importance 分布"""
+        """Plot importance distribution for each split"""
         if self._importance_df is None:
             print("No importance data to visualize")
             return
@@ -386,13 +386,13 @@ def visualize_importance_animation(
     show: bool = True,
 ) -> ImportanceVisualizer:
     """
-    便捷函数：从结果中提取并可视化所有特征的 importance
+    Convenience function: extract and visualize all feature importance from results
     
-    输出文件：
-    - importance_data.csv: 所有特征在所有 split 的 importance 数据
-    - importance_heatmap.png: 全特征热力图
-    - importance_animation.gif: 特征排名动画
-    - importance_distribution.png: 每 split 的 importance 分布
+    Output files:
+    - importance_data.csv: importance data of all features across all splits
+    - importance_heatmap.png: full feature heatmap
+    - importance_animation.gif: feature ranking animation
+    - importance_distribution.png: importance distribution per split
     """
     visualizer = ImportanceVisualizer(feature_names=feature_names)
     
@@ -405,7 +405,7 @@ def visualize_importance_animation(
     n_features = len(visualizer.frames[0].importance_vector)
     print(f"Found {len(visualizer.frames)} splits with {n_features} features")
     
-    # 生成输出路径
+    # Generate output paths
     csv_path = None
     heatmap_path = None
     gif_path = None
@@ -419,17 +419,17 @@ def visualize_importance_animation(
         gif_path = str(output_dir / "importance_animation.gif")
         dist_path = str(output_dir / "importance_distribution.png")
     
-    # 1. 导出 CSV
+    # 1. Export CSV
     if csv_path:
         visualizer.export_to_csv(csv_path)
     
-    # 2. 全特征热力图
+    # 2. Full feature heatmap
     visualizer.plot_full_heatmap(output_path=heatmap_path, show=show, sort_by='mean')
     
-    # 3. 全特征动画 (X轴: 因子名固定, Y轴: 强度)
+    # 3. Full feature animation (X-axis: factor names fixed, Y-axis: intensity)
     visualizer.create_importance_animation(output_path=gif_path, interval=interval, show=show, sort_by='mean')
     
-    # 4. 分布图
+    # 4. Distribution plot
     visualizer.plot_importance_distribution(output_path=dist_path, show=show)
     
     return visualizer

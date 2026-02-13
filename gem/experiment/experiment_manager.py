@@ -1,40 +1,27 @@
 """
-ExperimentManager - 实验管理器
-
-负责:
-- 构建执行计划 (并行/串行/bucket)
-- 用 Ray 调度
-- 聚合结果并输出报告
-
-ExperimentManager.run() 工作步骤:
-1. ray.init(...)
-2. splitspec_list, dr_start, dr_end = split_generator.generate(...)
-3. global_store = datamodule.prepare_global_store(dr_start, dr_end, base_spec)
-4. global_ref = ray.put(global_store)
-5. 构建 tasks = [SplitTask(...)] 并按 test_start 排序
-6. 初始化 state_ref = ray.put(init_state)
-7. 按 state_policy 构建 DAG 并执行
-8. 聚合 summary、写全局报告
+Experiment manager: split planning, execution and reporting.
 """
+
+from __future__ import annotations
+
 import json
 import time
-from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
-import numpy as np
 import polars as pl
 from hydra.core.hydra_config import HydraConfig
 
+from ..data.data_dataclasses import GlobalStore, SplitSpec
 from ..data.data_module import DataModule
 from ..data.split_generator import SplitGenerator
-from ..data.data_dataclasses import GlobalStore, SplitSpec
-from .experiment_dataclasses import RollingState, ExperimentConfig, SplitTask, SplitResult, StatePolicyConfig
-from .bucketing import BucketManager
 from ..method.method_dataclasses import TrainConfig
-
+from .bucketing import BucketManager
+from .executor import BaseExecutor, LocalExecutor, RayExecutor
+from .experiment_dataclasses import ExperimentConfig, RollingState, SplitResult, SplitTask
+from .run_context import RunContext
+from .task_dag import DynamicTaskDAG
 
 
 class ExperimentManager:
@@ -55,333 +42,271 @@ class ExperimentManager:
         self.method_config = method_config
         self.transform_pipeline_config = transform_pipeline_config
         self.adapter_config = adapter_config
-        
-        # Results
+
         self._results: Dict[int, SplitResult] = {}
         self._global_store: Optional[GlobalStore] = None
         self._splitspec_list: Optional[List[SplitSpec]] = None
         self._start_time: Optional[float] = None
-        self._use_ray: bool = self.experiment_config.use_ray
-    
+
     @property
     def use_ray(self) -> bool:
-        return self._use_ray
-    
+        return bool(self.experiment_config.use_ray)
+
     @property
     def feature_names(self) -> Optional[List[str]]:
-        """获取特征名列表"""
-        if self._global_store is not None:
-            return self._global_store.feature_names
-        return None
-    
+        if self._global_store is None:
+            return None
+        return self._global_store.feature_name_list
+
     @property
     def splitspec_list(self) -> Optional[List[SplitSpec]]:
-        """获取 split 规格列表"""
         return self._splitspec_list
-    
+
+    def _resolve_output_dir(self) -> Path:
+        try:
+            return Path(HydraConfig.get().runtime.output_dir)
+        except Exception:
+            return Path(self.experiment_config.output_dir)
+
     def run(self) -> Dict[int, SplitResult]:
         self._start_time = time.time()
-        output_dir = Path(HydraConfig.get().runtime.output_dir)
-        
-        print(f"\n{'='*60}")
+        output_dir = self._resolve_output_dir()
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"\n{'=' * 60}")
         print(f"Starting Experiment: {self.experiment_config.name}")
         print(f"Output: {output_dir}")
-        print(f"{'='*60}\n")
-        
-        # 1. Generate splits
+        print(f"{'=' * 60}\n")
+
         print("[1/6] Generating splits...")
         gen_output = self.split_generator.generate()
-        splitspec_list = gen_output.splitspec_list
-        self._splitspec_list = splitspec_list
-        dr_start = gen_output.date_start
-        dr_end = gen_output.date_end
-        print(f"  - Generated {len(splitspec_list)} splits")
-        
-        # 2. Prepare global store
+        self._splitspec_list = gen_output.splitspec_list
+        print(f"  - Generated {len(gen_output.splitspec_list)} splits")
+
         print("\n[2/6] Preparing global store...")
-        self._global_store = self.data_module.prepare_global_store(dr_start, dr_end)
+        self._global_store = self.data_module.prepare_global_store(
+            gen_output.date_start,
+            gen_output.date_end,
+        )
         print(f"  - Samples: {self._global_store.n_samples}")
         print(f"  - Features: {self._global_store.n_features}")
-        
-        # 3. Build tasks
+
         print("\n[3/6] Building tasks...")
-        tasks = self._build_tasks(splitspec_list)
-        tasks = sorted(tasks, key=lambda t: t.splitspec.test_date_list[0] if t.splitspec.test_date_list else 0)
+        tasks = self._build_tasks(gen_output.splitspec_list)
         print(f"  - Built {len(tasks)} tasks")
-        
-        # 4. Initialize state
+
         print("\n[4/6] Initializing state...")
         init_state = RollingState()
-        
-        # 5. Execute based on policy
-        print(f"\n[5/6] Executing with policy: {self.experiment_config.state_policy.mode}")
-        
-        if self.use_ray:
-            results = self._run_with_ray(tasks, init_state)
-        else:
-            results = self._run_local(tasks, init_state)
-        
-        self._results = {r.split_id: r for r in results}
-        
-        # 6. Generate report
+
+        mode = self.experiment_config.state_policy.mode
+        print(f"\n[5/6] Executing with policy: {mode}")
+        results = self._execute(tasks, init_state, output_dir)
+        self._results = {result.split_id: result for result in results}
+
         print("\n[6/6] Generating report...")
         self._generate_report(output_dir)
-        
+
         elapsed = time.time() - self._start_time
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Experiment completed in {elapsed:.1f}s")
-        print(f"{'='*60}\n")
-        
+        print(f"{'=' * 60}\n")
+
         return self._results
-    
+
     def _build_tasks(self, splitspec_list: List[SplitSpec]) -> List[SplitTask]:
-        """构建任务列表"""
-        tasks = []
-        for i, spec in enumerate(splitspec_list):
-            task = SplitTask(
+        tasks = [
+            SplitTask(
                 split_id=spec.split_id,
                 splitspec=spec,
-                seed=self.experiment_config.seed + i,
+                seed=self.experiment_config.seed + idx,
                 resource_request=self.experiment_config.resource_request,
                 train_config=self.train_config,
             )
-            tasks.append(task)
-        return tasks
-    
-    def _run_local(
-        self,
-        tasks: List[SplitTask],
-        init_state: RollingState,
-    ) -> List[SplitResult]:
-        """本地执行 (无 Ray)"""
-        from .ray_tasks import LocalTaskManager
-        
-        manager = LocalTaskManager()
-        policy_config = self.experiment_config.state_policy
-        mode = policy_config.mode
-        
-        # 创建执行计划
-        bucket_manager = BucketManager(bucket_fn=policy_config.bucket_fn)
-        execution_plan = bucket_manager.create_execution_plan(
-            [t.splitspec for t in tasks], mode
+            for idx, spec in enumerate(splitspec_list)
+        ]
+        return sorted(
+            tasks,
+            key=lambda task: (
+                task.splitspec.test_date_list[0] if task.splitspec.test_date_list else 0,
+                task.split_id,
+            ),
         )
-        
-        # 创建 task 索引
-        task_map = {t.splitspec.split_id: t for t in tasks}
-        
-        results = []
-        current_state = init_state
-        
-        if mode == 'none':
-            # 全并行 (本地串行执行)
-            print(f"  - Mode: NONE (parallel conceptually, serial locally)")
-            for i, task in enumerate(tasks):
-                print(f"    Running split {task.split_id} ({i+1}/{len(tasks)})")
-                result = manager.run_split(
-                    task, self._global_store, None, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
-                )
-                results.append(result)
-                self._print_split_result(result)
-        
-        elif mode == 'per_split':
-            # 严格串行
-            print(f"  - Mode: PER_SPLIT (strict serial)")
-            for i, batch in enumerate(execution_plan):
-                for spec in batch:
-                    task = task_map[spec.split_id]
-                    print(f"    Running split {task.split_id}")
-                    result = manager.run_split(
-                        task, self._global_store, current_state, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
-                    )
-                    results.append(result)
-                    self._print_split_result(result)
-                    
-                    # 更新状态
-                    current_state = manager.update_state(
-                        current_state, result, policy_config
-                    )
-        
-        elif mode == 'bucket':
-            # Bucket 内并行 (本地串行)，Bucket 间串行
-            print(f"  - Mode: BUCKET")
-            for bucket_idx, batch in enumerate(execution_plan):
-                print(f"    Bucket {bucket_idx + 1}/{len(execution_plan)} ({len(batch)} splits)")
-                
-                bucket_results = []
-                for spec in batch:
-                    task = task_map[spec.split_id]
-                    print(f"      Running split {task.split_id}")
-                    result = manager.run_split(
-                        task, self._global_store, current_state, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
-                    )
-                    bucket_results.append(result)
-                    results.append(result)
-                    self._print_split_result(result)
-                
-                # Bucket 结束后更新状态
-                current_state = manager.update_state_from_bucket(
-                    current_state, bucket_results, policy_config
-                )
-        
-        return results
-    
-    def _run_with_ray(
-        self,
-        tasks: List[SplitTask],
-        init_state: RollingState,
-    ) -> List[SplitResult]:
-        """使用 Ray 执行"""
-        from .ray_tasks import RayTaskManager
-        
-        manager = RayTaskManager(
-            num_gpus_per_trial=0,
-            num_gpus_per_train=0,
+
+    def _build_context(self, output_dir: Path) -> RunContext:
+        return RunContext(
+            experiment_config=self.experiment_config,
+            train_config=self.train_config,
+            method_config=self.method_config,
+            transform_config=self.transform_pipeline_config,
+            adapter_config=self.adapter_config,
+            output_dir=output_dir,
+            seed=self.experiment_config.seed,
         )
-        manager.init_ray(
+
+    def _create_executor(self) -> BaseExecutor:
+        if not self.use_ray:
+            return LocalExecutor()
+
+        executor = RayExecutor()
+        executor.init_ray(
             address=self.experiment_config.ray_address,
             num_cpus=self.experiment_config.num_cpus,
             num_gpus=self.experiment_config.num_gpus,
         )
-        
+        return executor
+
+    def _execute(
+        self,
+        tasks: List[SplitTask],
+        init_state: RollingState,
+        output_dir: Path,
+    ) -> List[SplitResult]:
+        executor = self._create_executor()
         try:
-            policy_config = self.experiment_config.state_policy
-            mode = policy_config.mode
-            
-            # Put global store in object store
-            global_ref = manager.put(self._global_store)
-            
-            # 创建执行计划
-            bucket_manager = BucketManager(bucket_fn=policy_config.bucket_fn)
-            execution_plan = bucket_manager.create_execution_plan(
-                [t.splitspec for t in tasks], mode
-            )
-            
-            task_map = {t.splitspec.split_id: t for t in tasks}
-            result_refs = []
-            
-            if mode == 'none':
-                # 全并行
-                print(f"  - Mode: NONE (fully parallel)")
-                state_ref = manager.put(None)
-                
-                refs = []
-                for task in tasks:
-                    ref = manager.run_split(
-                        task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
-                    )
-                    refs.append(ref)
-                
-                results = manager.get(refs)
-            
-            elif mode == 'per_split':
-                # 严格串行
-                print(f"  - Mode: PER_SPLIT (strict serial)")
-                state_ref = manager.put(init_state)
-                
-                results = []
-                for batch in execution_plan:
-                    for spec in batch:
-                        task = task_map[spec.split_id]
-                        print(f"    Running split {task.split_id}")
-                        
-                        result_ref = manager.run_split(
-                            task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
-                        )
-                        result = manager.get(result_ref)
-                        results.append(result)
-                        self._print_split_result(result)
-                        
-                        # 更新状态
-                        state_ref = manager.update_state(
-                            state_ref, result_ref, policy_config
-                        )
-            
-            elif mode == 'bucket':
-                # Bucket 模式
-                print(f"  - Mode: BUCKET")
-                state_ref = manager.put(init_state)
-                
-                results = []
-                for bucket_idx, batch in enumerate(execution_plan):
-                    print(f"    Bucket {bucket_idx + 1}/{len(execution_plan)}")
-                    
-                    # Bucket 内并行
-                    refs = []
-                    for spec in batch:
-                        task = task_map[spec.split_id]
-                        ref = manager.run_split(
-                            task, global_ref, state_ref, self.experiment_config, self.train_config, self.method_config, self.transform_pipeline_config, self.adapter_config
-                        )
-                        refs.append(ref)
-                    
-                    bucket_results = manager.get(refs)
-                    results.extend(bucket_results)
-                    
-                    for r in bucket_results:
-                        self._print_split_result(r)
-                    
-                    # Bucket 间更新状态
-                    state_ref = manager.update_state_from_bucket(
-                        state_ref, refs, policy_config
-                    )
-            
-            else:
-                results = []
-            
-            return results
-            
+            return self._run_with_executor(executor, tasks, init_state, output_dir)
         finally:
-            manager.shutdown()
-    
-    def _print_split_result(self, result: SplitResult):
-        """打印 split 结果"""
+            if self.use_ray and isinstance(executor, RayExecutor):
+                executor.shutdown()
+
+    def _run_with_executor(
+        self,
+        executor: BaseExecutor,
+        tasks: List[SplitTask],
+        init_state: RollingState,
+        output_dir: Path,
+    ) -> List[SplitResult]:
+        mode = self.experiment_config.state_policy.mode
+        policy_config = self.experiment_config.state_policy
+
+        if mode not in {"none", "per_split", "bucket"}:
+            raise ValueError(
+                f"Unsupported state policy mode '{mode}'. "
+                "Expected one of: none, per_split, bucket."
+            )
+
+        ctx = self._build_context(output_dir)
+        task_map = {task.split_id: task for task in tasks}
+
+        bucket_manager = BucketManager(bucket_fn=policy_config.bucket_fn)
+        execution_plan = bucket_manager.create_execution_plan(
+            [task.splitspec for task in tasks],
+            mode,
+        )
+
+        global_ref = executor.put(self._global_store)
+        state_ref = executor.put(init_state if mode != "none" else None)
+
+        self._print_schedule_overview(mode, execution_plan)
+        dag = DynamicTaskDAG(mode=mode, policy_config=policy_config)
+        submission = dag.submit(
+            executor,
+            tasks,
+            execution_plan,
+            task_map,
+            global_ref,
+            state_ref,
+            ctx,
+        )
+        result_refs = submission.result_refs_in_order
+        results = executor.get(result_refs) if self.use_ray else result_refs
+
+        for split_id, result in zip(submission.split_ids_in_order, results):
+            print(f"    Completed split {split_id}")
+            self._print_split_result(result)
+
+        return results
+
+    def _print_schedule_overview(self, mode: str, execution_plan) -> None:
+        if mode == "none":
+            print("  - DAG mode: NONE (all splits are independent nodes)")
+            if execution_plan:
+                print(f"    Parallel split count: {len(execution_plan[0])}")
+            return
+        if mode == "per_split":
+            print("  - DAG mode: PER_SPLIT (state chain)")
+            print(f"    Serial stages: {len(execution_plan)}")
+            return
+        if mode == "bucket":
+            print("  - DAG mode: BUCKET (parallel-in-bucket + serial-across-buckets)")
+            for idx, bucket in enumerate(execution_plan, start=1):
+                print(f"    Bucket {idx}/{len(execution_plan)} -> {len(bucket)} splits")
+            return
+        print(f"  - DAG mode: {mode}")
+
+    def _print_split_result(self, result: SplitResult) -> None:
         if result.skipped:
             print(f"      [SKIPPED] {result.skip_reason}")
-        elif result.metrics:
-            if "error" in result.metrics:
-                error_msg = str(result.metrics["error"])[:100]
-                print(f"      [ERROR] {error_msg}")
-            else:
-                metrics_str = ", ".join(
-                    f"{k}={v:.4f}" if isinstance(v, (int, float)) else f"{k}={v}"
-                    for k, v in list(result.metrics.items())[:3]
-                )
-                print(f"      [OK] {metrics_str}")
-        else:
-            print(f"      [OK] No metrics")
-    
-    def _generate_report(self, output_dir: Path):
-        """生成实验报告"""
-        # Summary DataFrame
+            return
+        if result.failed:
+            error_msg = result.error_message or "Unknown error"
+            print(f"      [FAILED] {error_msg[:160]}")
+            return
+
+        if not result.metrics:
+            print("      [OK] No metrics")
+            return
+
+        if "error" in result.metrics:
+            error_msg = str(result.metrics["error"])[:160]
+            print(f"      [ERROR] {error_msg}")
+            return
+
+        items = list(result.metrics.items())[:3]
+        metrics_str = ", ".join(
+            f"{k}={v:.4f}" if isinstance(v, (int, float)) else f"{k}={v}"
+            for k, v in items
+        )
+        print(f"      [OK] {metrics_str}")
+
+    def _generate_report(self, output_dir: Path) -> None:
         rows = []
-        for split_id, result in self._results.items():
-            row = {"split_id": split_id, "skipped": result.skipped, "skip_reason": result.skip_reason}
+        for split_id, result in sorted(self._results.items()):
+            status = "failed" if result.failed else ("skipped" if result.skipped else "success")
+            row = {
+                "split_id": split_id,
+                "status": status,
+                "skipped": result.skipped,
+                "failed": result.failed,
+                "skip_reason": result.skip_reason,
+                "error_message": result.error_message,
+                "error_trace_path": result.error_trace_path,
+            }
             if result.metrics:
                 row.update(result.metrics)
             rows.append(row)
-        
-        df = pl.DataFrame(rows).sort("split_id")
-        
-        # Save CSV
+
+        df = pl.DataFrame(rows) if rows else pl.DataFrame(
+            schema={
+                "split_id": pl.Int64,
+                "status": pl.Utf8,
+                "skipped": pl.Boolean,
+                "failed": pl.Boolean,
+                "skip_reason": pl.Utf8,
+                "error_message": pl.Utf8,
+                "error_trace_path": pl.Utf8,
+            }
+        )
+
         csv_path = output_dir / "results_summary.csv"
         df.write_csv(csv_path)
         print(f"  - Saved: {csv_path}")
-        
-        # Save JSON config
+
         config_path = output_dir / "config.json"
         config_dict = {
             "name": self.experiment_config.name,
             "seed": self.experiment_config.seed,
             "n_trials": self.experiment_config.n_trials,
+            "parallel_trials": self.experiment_config.parallel_trials,
+            "use_ray_tune": self.experiment_config.use_ray_tune,
             "state_policy_mode": self.experiment_config.state_policy.mode,
             "timestamp": datetime.now().isoformat(),
-            "elapsed_seconds": time.time() - self._start_time,
+            "elapsed_seconds": time.time() - (self._start_time or time.time()),
         }
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, default=str)
         print(f"  - Saved: {config_path}")
-        
-        # Print summary
-        n_skipped = sum(1 for r in self._results.values() if r.skipped)
-        n_success = len(self._results) - n_skipped
-        print(f"\n  Splits: {n_success} success, {n_skipped} skipped")
+
+        n_skipped = sum(1 for item in self._results.values() if item.skipped)
+        n_failed = sum(1 for item in self._results.values() if item.failed)
+        n_success = len(self._results) - n_skipped - n_failed
+        print(f"\n  Splits: {n_success} success, {n_skipped} skipped, {n_failed} failed")

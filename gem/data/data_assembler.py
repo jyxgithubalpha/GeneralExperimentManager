@@ -1,13 +1,11 @@
 """
-Data Assemblers - 数据组装器
-包含:
-- GlobalDataAssembler: 全局数据组装器基类
-- FeatureAssembler: 特征组装器"""
+Data assemblers.
+"""
 
-
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import polars as pl
@@ -17,70 +15,86 @@ from .utils import remove_quotes_from_list
 
 
 class GlobalDataAssembler(ABC):
-    """全局数据组装器基类"""
-    
     @abstractmethod
     def assemble(self, source_dict: Dict[str, pl.DataFrame]) -> GlobalStore:
-        """组装数据源为 GlobalStore"""
-        pass
+        """Assemble source frames into a `GlobalStore`."""
 
 
 class FeatureAssembler(GlobalDataAssembler):
-    """特征组装器- 将多个数据源组装为 GlobalStore"""
-    
+    """Assemble multiple source tables into one model-ready `GlobalStore`."""
+
     def __init__(self, dataset_spec: DatasetSpec):
         self.X_source_list = remove_quotes_from_list(dataset_spec.X_source_list)
         self.y_source_list = remove_quotes_from_list(dataset_spec.y_source_list)
         self.extra_source_list = remove_quotes_from_list(dataset_spec.extra_source_list)
         self.key_cols = remove_quotes_from_list(dataset_spec.key_cols)
         self.group_col = remove_quotes_from_list(dataset_spec.group_col)
-    
+
+        if not self.key_cols:
+            raise ValueError("dataset_spec.key_cols must not be empty.")
+        if not self.X_source_list:
+            raise ValueError("dataset_spec.X_source_list must not be empty.")
+        if not self.y_source_list:
+            raise ValueError("dataset_spec.y_source_list must not be empty.")
+
     def _prefix_non_key_cols(self, df: pl.DataFrame, prefix: str) -> pl.DataFrame:
-        """为非主键列添加前缀"""
         rename_map = {
-            col: f"{prefix}__{col}" 
-            for col in df.columns 
+            col: f"{prefix}__{col}"
+            for col in df.columns
             if col not in self.key_cols
         }
         return df.rename(rename_map)
-    
+
+    def _validate_source_frame(self, df_name: str, df: pl.DataFrame) -> None:
+        missing = [col for col in self.key_cols if col not in df.columns]
+        if missing:
+            raise ValueError(
+                f"Source '{df_name}' missing key columns: {missing}. "
+                f"Available columns: {df.columns}"
+            )
+
+    def _require_sources(self, source_dict: Dict[str, pl.DataFrame], names: List[str]) -> List[pl.DataFrame]:
+        missing = [name for name in names if name not in source_dict]
+        if missing:
+            raise KeyError(f"Missing required sources: {missing}")
+
+        frames: List[pl.DataFrame] = []
+        for name in names:
+            frame = source_dict[name]
+            self._validate_source_frame(name, frame)
+            frames.append(self._prefix_non_key_cols(frame, name))
+        return frames
+
+    def _merge_sources(self, frames: List[pl.DataFrame]) -> pl.DataFrame:
+        merged = frames[0]
+        for df in frames[1:]:
+            merged = merged.join(df, on=self.key_cols, how="outer_coalesce")
+        return merged
+
+    def _to_matrix(self, df: pl.DataFrame, cols: List[str]) -> np.ndarray:
+        if not cols:
+            return np.empty((df.height, 0), dtype=np.float32)
+        return df.select(cols).to_numpy().astype(np.float32)
+
     def assemble(self, source_dict: Dict[str, pl.DataFrame]) -> GlobalStore:
-        """组装数据源为 GlobalStore"""
-        # 组装 X
-        X_dfs = [self._prefix_non_key_cols(source_dict[name], name) for name in self.X_source_list]
-        X_df = X_dfs[0]
-        for df in X_dfs[1:]:
-            X_df = X_df.join(df, on=self.key_cols, how="outer_coalesce")
-        
-        # 组装 y
-        y_dfs = [self._prefix_non_key_cols(source_dict[name], name) for name in self.y_source_list]
-        y_df = y_dfs[0]
-        for df in y_dfs[1:]:
-            y_df = y_df.join(df, on=self.key_cols, how="outer_coalesce")
-        
-        # 组装 extra
-        extra_df = None
+        X_df = self._merge_sources(self._require_sources(source_dict, self.X_source_list))
+        y_df = self._merge_sources(self._require_sources(source_dict, self.y_source_list))
+
+        extra_df: Optional[pl.DataFrame] = None
         if self.extra_source_list:
-            extra_dfs = [self._prefix_non_key_cols(source_dict[name], name) for name in self.extra_source_list]
-            extra_df = extra_dfs[0]
-            for df in extra_dfs[1:]:
-                extra_df = extra_df.join(df, on=self.key_cols, how="outer_coalesce")
-        
-        # 对齐所有数据 (以 X_df 的 keys 为基准)
-        keys = X_df.select(self.key_cols)
+            extra_df = self._merge_sources(self._require_sources(source_dict, self.extra_source_list))
+
+        keys = X_df.select(self.key_cols).unique(maintain_order=True)
         y_df = keys.join(y_df, on=self.key_cols, how="left")
-        
         if extra_df is not None:
             extra_df = keys.join(extra_df, on=self.key_cols, how="left")
-        
-        # 提取特征名和标签名
+
         feature_names = [c for c in X_df.columns if c not in self.key_cols]
         label_names = [c for c in y_df.columns if c not in self.key_cols]
-        
-        # 转换为 numpy
-        X_full = X_df.select(feature_names).to_numpy().astype(np.float32)
-        y_full = y_df.select(label_names).to_numpy().astype(np.float32)
-        
+
+        X_full = self._to_matrix(X_df, feature_names)
+        y_full = self._to_matrix(y_df, label_names)
+
         return GlobalStore(
             keys=keys,
             X_full=X_full,

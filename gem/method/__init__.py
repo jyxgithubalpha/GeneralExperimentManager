@@ -24,9 +24,11 @@ from .base import (
     BaseTuner,
     BaseParamSpace,
     BaseMethod,
+    MethodComponents,
     BaseAdapter,
     RayDataAdapter,
     BaseTransformPipeline,
+    FittedTransformPipeline,
     BaseTransform,
     TransformContext,
     FillNaNTransform,
@@ -55,8 +57,10 @@ from .method_dataclasses import (
     FitResult,
     EvalResult,
     MethodOutput,
+    StateDelta,
 )
 from .component_factory import ComponentRegistry
+from .method_factory import MethodFactory
 
 __all__ = [
     # Base classes
@@ -66,11 +70,13 @@ __all__ = [
     "BaseTuner",
     "BaseParamSpace",
     "BaseMethod",
+    "MethodComponents",
     # Adapters
     "BaseAdapter",
     "RayDataAdapter",
     # Transform
     "BaseTransformPipeline",
+    "FittedTransformPipeline",
     "BaseTransform",
     "TransformContext",
     "FillNaNTransform",
@@ -97,6 +103,8 @@ __all__ = [
     "FitResult",
     "EvalResult",
     "MethodOutput",
+    "StateDelta",
     # Factory
     "ComponentRegistry",
+    "MethodFactory",
 ]

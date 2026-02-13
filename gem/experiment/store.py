@@ -1,5 +1,5 @@
-"""
-Store - Artifact存储管理
+﻿"""
+Store - Artifact瀛樺偍绠＄悊
 """
 
 
@@ -13,7 +13,7 @@ import polars as pl
 
 
 class Store:
-    """Artifact存储管理"""
+    """Artifact瀛樺偍绠＄悊"""
     
     def __init__(self, base_dir: Path, experiment_name: Optional[str] = None):
         self.base_dir = Path(base_dir)
@@ -38,6 +38,43 @@ class Store:
     def get_plot_path(self, filename: str) -> Path:
         return self.experiment_dir / "plots" / filename
     
+    def split_dir(self, split_id: int) -> Path:
+        """鑾峰彇 split 杈撳嚭鐩綍"""
+        d = self.experiment_dir / f"split_{split_id}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    
+    def trial_dir(self, split_id: int, trial_id: int) -> Path:
+        """鑾峰彇 trial 杈撳嚭鐩綍"""
+        d = self.split_dir(split_id) / f"trial_{trial_id}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    
+    def save_artifact(self, split_id: int, name: str, obj: Any) -> Path:
+        """淇濆瓨 artifact"""
+        import pickle
+        path = self.split_dir(split_id) / name
+        suffix = path.suffix.lower()
+
+        if isinstance(obj, pl.DataFrame):
+            if suffix == ".parquet":
+                obj.write_parquet(str(path))
+            else:
+                if suffix not in {"", ".csv"}:
+                    raise ValueError(
+                        f"Unsupported DataFrame artifact suffix '{suffix}'. "
+                        "Use .csv or .parquet."
+                    )
+                if suffix == "":
+                    path = path.with_suffix(".csv")
+                obj.write_csv(str(path))
+        else:
+            if suffix == "":
+                path = path.with_suffix(".pkl")
+            with open(path, 'wb') as f:
+                pickle.dump(obj, f)
+        return path
+    
     def save_config(self, config: Dict[str, Any]) -> None:
         self._config_snapshot = config
         path = self.experiment_dir / "config.json"
@@ -54,3 +91,4 @@ class Store:
         if path.exists():
             return pl.read_csv(path)
         return None
+

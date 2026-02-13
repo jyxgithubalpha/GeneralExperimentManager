@@ -1,13 +1,12 @@
 """
-状态管理相关的数据结构定义
+Data structure definitions for state management
 
-架构设计:
-- BaseState: 状态基类，所有可插拔状态继承此类
-- RollingState: 状态容器，管理多个 BaseState 实例
-- 具体状态类: FeatureImportanceState, TuningState, DataWeightState 等
+Architecture design:
+- BaseState: State base class, all pluggable states inherit from this class
+- RollingState: State container, manages multiple BaseState instances
+- Specific state classes: FeatureImportanceState, TuningState, DataWeightState, etc.
 """
 
-import hashlib
 import pickle
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -20,38 +19,39 @@ import numpy as np
 import polars as pl
 
 from ..data.data_dataclasses import SplitSpec
-from ..method.method_dataclasses import TrainConfig
+from ..method.method_dataclasses import StateDelta, TrainConfig
+from ..utils.hash_utils import hash_feature_names
 
 
 # =============================================================================
-# 状态基类
+# State base class
 # =============================================================================
 
 
 class BaseState(ABC):
     """
-    可插拔状态基类
+    Pluggable state base class
     
-    所有可在 RollingState 中存储的状态组件都应继承此类。
-    每个 State 类应定义自己的 state_key 作为唯一标识。
+    All state components that can be stored in RollingState should inherit from this class.
+    Each State class should define its own state_key as a unique identifier.
     """
     
     @classmethod
     @abstractmethod
     def state_key(cls) -> str:
-        """状态的唯一标识符"""
+        """Unique identifier for the state"""
         pass
     
     @abstractmethod
     def update(self, *args, **kwargs) -> None:
-        """更新状态"""
+        """Update state"""
         pass
     
     def to_transform_context(self) -> Dict[str, Any]:
         """
-        转换为 transform 可用的上下文
+        Convert to context usable by transform
         
-        返回的 dict 会被传递给 Transform.fit/transform 方法
+        The returned dict will be passed to Transform.fit/transform methods
         """
         return {}
 
@@ -59,13 +59,13 @@ class BaseState(ABC):
 @dataclass
 class StatePolicyConfig:
     """
-    状态策略配置    
+    State policy configuration    
     Attributes:
-        mode: 策略模式
-        bucket_fn: Bucket 分组函数
-        ema_alpha: EMA 平滑系数
-        importance_topk: 只保留 top-k 特征
-        normalize_importance: 是否归一化重要性    
+        mode: Policy mode
+        bucket_fn: Bucket grouping function
+        ema_alpha: EMA smoothing coefficient
+        importance_topk: Keep only top-k features
+        normalize_importance: Whether to normalize importance    
     """
     mode: str = "none"
     bucket_fn: Optional[Callable[[SplitSpec], str]] = None
@@ -76,9 +76,9 @@ class StatePolicyConfig:
 
 @dataclass
 class ResourceRequest:
-    """资源请求"""
-    trial_gpus: float = 1.0  # 每个 trial 的 GPU 数量
-    final_train_gpus: float = 1.0  # 最终训练的 GPU 数量
+    """Resource request"""
+    trial_gpus: float = 1.0  # Number of GPUs per trial
+    final_train_gpus: float = 1.0  # Number of GPUs for final training
     trial_cpus: float = 1.0
     final_train_cpus: float = 1.0
 
@@ -86,7 +86,7 @@ class ResourceRequest:
 @dataclass
 class ExperimentConfig:
     """
-    实验配置
+    Experiment configuration
     """
     name: str
     output_dir: Path
@@ -94,6 +94,7 @@ class ExperimentConfig:
     n_trials: int = 50
     trial_timeout: Optional[int] = None
     parallel_trials: int = 1
+    use_ray_tune: Optional[bool] = None
     seed: int = 42
     ray_address: Optional[str] = None
     num_cpus: Optional[int] = None
@@ -101,16 +102,24 @@ class ExperimentConfig:
     use_ray: bool = False
     resource_request: Optional[ResourceRequest] = None
 
+    def __post_init__(self) -> None:
+        if self.n_trials < 0:
+            raise ValueError(f"n_trials must be >= 0, got {self.n_trials}")
+        if self.parallel_trials <= 0:
+            raise ValueError(
+                f"parallel_trials must be > 0, got {self.parallel_trials}"
+            )
+
 
 @dataclass
 class SplitTask:
     """
-    Split 任务 - ExperimentManager 构建
+    Split task - built by ExperimentManager
     Attributes:
         split_id: Split ID
-        splitspec: Split 规格
-        seed: 随机种子
-        resource_request: 资源请求
+        splitspec: Split specification
+        seed: Random seed
+        resource_request: Resource request
     """
     split_id: int
     splitspec: SplitSpec
@@ -122,17 +131,20 @@ class SplitTask:
 @dataclass
 class SplitResult:
     """
-    Split 结果 - 单次 split 训练的结果    
+    Split result - result of a single split training    
     Attributes:
-        split_id: Split 标识
-        importance_vector: 特征重要性向量
-        feature_names_hash: 特征名哈希
-        industry_delta: 行业增量权重
-        metrics: 评估指标
-        best_params: 最佳超参数
-        best_objective: 最佳目标值
-        skipped: 是否被跳过
-        skip_reason: 跳过原因
+        split_id: Split identifier
+        importance_vector: Feature importance vector
+        feature_names_hash: Feature name hash
+        industry_delta: Industry incremental weights
+        metrics: Evaluation metrics
+        best_params: Best hyperparameters
+        best_objective: Best objective value
+        skipped: Whether skipped
+        skip_reason: Skip reason
+        test_predictions: Test set predictions (for backtesting)
+        test_keys: Test set keys (date, code)
+        test_extra: Test set extra data (bench, score, etc.)
     """
     split_id: int
     importance_vector: Optional[np.ndarray] = None
@@ -141,20 +153,27 @@ class SplitResult:
     metrics: Optional[Dict[str, float]] = None
     best_params: Optional[Dict[str, Any]] = None
     best_objective: Optional[float] = None
+    state_delta: Optional[StateDelta] = None
     skipped: bool = False
+    failed: bool = False
     skip_reason: Optional[str] = None
+    error_message: Optional[str] = None
+    error_trace_path: Optional[str] = None
+    test_predictions: Optional[np.ndarray] = None
+    test_keys: Optional["pl.DataFrame"] = None
+    test_extra: Optional["pl.DataFrame"] = None
 
 
 # =============================================================================
-# 具体状态类
+# Specific state classes
 # =============================================================================
 
 @dataclass
 class FeatureImportanceState(BaseState):
     """
-    特征重要性状态
+    Feature importance state
     
-    用于存储和更新特征重要性的 EMA，可传递给 FeatureWeightTransform。
+    Used for storing and updating EMA of feature importance, can be passed to FeatureWeightTransform.
     """
     importance_ema: Optional[np.ndarray] = None
     feature_names: Optional[List[str]] = None
@@ -171,37 +190,37 @@ class FeatureImportanceState(BaseState):
         feature_names: Optional[List[str]] = None,
         alpha: Optional[float] = None,
     ) -> None:
-        """更新特征重要性 EMA"""
+        """Update feature importance EMA"""
         if new_importance is None:
             return
         
-        # 更新 alpha
+        # Update alpha
         if alpha is not None:
             self.alpha = alpha
         
-        # 检查特征名一致性
+        # Check feature name consistency
         if feature_names is not None:
-            new_hash = hashlib.md5(str(feature_names).encode()).hexdigest()[:8]
+            new_hash = hash_feature_names(feature_names)
             if self.feature_names_hash is not None and self.feature_names_hash != new_hash:
                 raise ValueError(f"Feature names hash mismatch: {self.feature_names_hash} vs {new_hash}")
             self.feature_names = feature_names
             self.feature_names_hash = new_hash
         
-        # 更新 EMA
+        # Update EMA
         if self.importance_ema is None:
             self.importance_ema = new_importance.copy()
         else:
             self.importance_ema = self.alpha * new_importance + (1 - self.alpha) * self.importance_ema
     
     def to_transform_context(self) -> Dict[str, Any]:
-        """feature_weights 传递给 FeatureWeightTransform"""
+        """Pass feature_weights to FeatureWeightTransform"""
         return {
             "feature_weights": self.importance_ema,
             "feature_names": self.feature_names,
         }
     
     def get_topk_indices(self, k: int) -> np.ndarray:
-        """获取 top-k 重要特征的索引"""
+        """Get indices of top-k important features"""
         if self.importance_ema is None:
             return np.array([])
         k = min(k, len(self.importance_ema))
@@ -211,9 +230,9 @@ class FeatureImportanceState(BaseState):
 @dataclass
 class SampleWeightState(BaseState):
     """
-    样本加权状态
+    Sample weight state
     
-    用于计算训练样本的权重，支持按资产/时间/行业加权。
+    Used for computing training sample weights, supports weighting by asset/time/industry.
     """
     asset_weights: Optional[Dict[str, float]] = None
     industry_weights: Optional[Dict[str, float]] = None
@@ -229,7 +248,7 @@ class SampleWeightState(BaseState):
         industry_weights: Optional[Dict[str, float]] = None,
         time_weights: Optional[Dict[int, float]] = None,
     ) -> None:
-        """更新样本权重"""
+        """Update sample weights"""
         if asset_weights is not None:
             self.asset_weights = asset_weights
         if industry_weights is not None:
@@ -250,7 +269,7 @@ class SampleWeightState(BaseState):
         group: Optional[pl.DataFrame] = None,
         industry_col: str = "industry",
     ) -> np.ndarray:
-        """计算样本权重"""
+        """Compute sample weights"""
         n = keys.height
         weights = np.ones(n, dtype=np.float32)
         
@@ -279,7 +298,7 @@ class SampleWeightState(BaseState):
 @dataclass
 class TuningState(BaseState):
     """
-    调参状态 - 用于超参搜索优化
+    Tuning state - for hyperparameter search optimization
     """
     last_best_params: Optional[Dict[str, Any]] = None
     params_history: List[Dict[str, Any]] = field(default_factory=list)
@@ -291,7 +310,7 @@ class TuningState(BaseState):
         return "tuning"
     
     def update(self, best_params: Dict[str, Any], best_objective: float) -> None:
-        """更新调参状态"""
+        """Update tuning state"""
         self.last_best_params = best_params.copy()
         self.params_history.append(best_params.copy())
         self.objective_history.append(best_objective)
@@ -305,7 +324,7 @@ class TuningState(BaseState):
         self,
         base_space: Dict[str, Tuple[float, float]],
     ) -> Dict[str, Tuple[float, float]]:
-        """根据历史收缩搜索空间"""
+        """Shrink search space based on history"""
         if self.last_best_params is None:
             return base_space
         
@@ -326,51 +345,51 @@ class TuningState(BaseState):
 
 
 # =============================================================================
-# 状态容器
+# State container
 # =============================================================================
 
 @dataclass
 class RollingState:
     """
-    滚动状态容器 - 管理多个可插拔的 State 组件
+    Rolling state container - manages multiple pluggable State components
     
-    支持动态注册和获取不同类型的 State，并能将所有 State 
-    转换为统一的 transform context 传递给 Transform Pipeline。
+    Supports dynamic registration and retrieval of different types of State, and can convert all State 
+    into unified transform context to pass to Transform Pipeline.
     
     Attributes:
-        states: 状态字典 {state_key: BaseState}
-        split_history: 历史 split ID 列表
-        metadata: 额外元数据
+        states: State dictionary {state_key: BaseState}
+        split_history: Historical split ID list
+        metadata: Additional metadata
     """
     states: Dict[str, BaseState] = field(default_factory=dict)
     split_history: List[int] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def register_state(self, state: BaseState) -> None:
-        """注册一个状态组件"""
+        """Register a state component"""
         self.states[state.state_key()] = state
     
     def get_state(self, state_class: Type[BaseState]) -> Optional[BaseState]:
-        """获取指定类型的状态"""
+        """Get state of specified type"""
         key = state_class.state_key()
         return self.states.get(key)
     
     def get_or_create_state(self, state_class: Type[BaseState]) -> BaseState:
-        """获取或创建指定类型的状态"""
+        """Get or create state of specified type"""
         key = state_class.state_key()
         if key not in self.states:
             self.states[key] = state_class()
         return self.states[key]  # type: ignore
     
     def has_state(self, state_class: Type[BaseState]) -> bool:
-        """检查是否存在指定类型的状态"""
+        """Check if state of specified type exists"""
         return state_class.state_key() in self.states
     
     def to_transform_context(self) -> Dict[str, Any]:
         """
-        将所有状态转换为 transform context
+        Convert all states to transform context
         
-        返回的 dict 可以传递给 BaseTransformPipeline.process_views()
+        The returned dict can be passed to BaseTransformPipeline.process_views()
         """
         context = {}
         for state in self.states.values():
@@ -378,7 +397,7 @@ class RollingState:
         return context
     
     # =========================================================================
-    # 便捷方法 - 常用操作的快捷方式
+    # Convenience methods - shortcuts for common operations
     # =========================================================================
     
     def update_importance(
@@ -387,7 +406,7 @@ class RollingState:
         feature_names: Optional[List[str]] = None,
         alpha: float = 0.3,
     ) -> None:
-        """更新特征重要性 (便捷方法)"""
+        """Update feature importance (convenience method)"""
         state = self.get_or_create_state(FeatureImportanceState)
         state.update(new_importance, feature_names, alpha)
     
@@ -396,48 +415,24 @@ class RollingState:
         best_params: Dict[str, Any],
         best_objective: float,
     ) -> None:
-        """更新调参状态 (便捷方法)"""
+        """Update tuning state (convenience method)"""
         state = self.get_or_create_state(TuningState)
         state.update(best_params, best_objective)
     
     @property
     def feature_importance(self) -> Optional[FeatureImportanceState]:
-        """获取特征重要性状态 (便捷属性)"""
+        """Get feature importance state (convenience property)"""
         return self.get_state(FeatureImportanceState)
     
     @property
     def tuning(self) -> Optional[TuningState]:
-        """获取调参状态 (便捷属性)"""
+        """Get tuning state (convenience property)"""
         return self.get_state(TuningState)
     
     @property
     def sample_weight(self) -> Optional[SampleWeightState]:
-        """获取样本权重状态 (便捷属性)"""
+        """Get sample weight state (convenience property)"""
         return self.get_state(SampleWeightState)
-    
-    # =========================================================================
-    # 向后兼容属性 (deprecated, 建议使用新 API)
-    # =========================================================================
-    
-    @property
-    def importance_ema(self) -> Optional[np.ndarray]:
-        """[deprecated] 使用 feature_importance.importance_ema 代替"""
-        state = self.get_state(FeatureImportanceState)
-        return state.importance_ema if state else None
-    
-    @property
-    def tuning_state(self) -> Optional[TuningState]:
-        """[deprecated] 使用 tuning 属性代替"""
-        return self.get_state(TuningState)
-    
-    @property
-    def data_weight_state(self) -> Optional[SampleWeightState]:
-        """[deprecated] 使用 sample_weight 属性代替"""
-        return self.get_state(SampleWeightState)
-    
-    # =========================================================================
-    # 序列化
-    # =========================================================================
     
     def save(self, path) -> None:
         with open(path, 'wb') as f:

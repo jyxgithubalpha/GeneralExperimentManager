@@ -1,7 +1,8 @@
 """
-LightGBMImportanceExtractor - LightGBM 特征重要性提取器
+LightGBM feature importance extractor.
 """
 
+from __future__ import annotations
 
 from typing import Any, List, Tuple
 
@@ -12,52 +13,38 @@ from ..base import BaseImportanceExtractor
 
 
 class LightGBMImportanceExtractor(BaseImportanceExtractor):
-    """
-    LightGBM 特征重要性提取器
-    
-    统一输出 per-feature vector，与当前 feature_names 对齐
-    """
-    
-    def __init__(
-        self,
-        importance_type: str = "gain",
-        normalize: bool = True,
-    ):
+    """Extract aligned feature importance vector and table from a LightGBM model."""
+
+    def __init__(self, importance_type: str = "gain", normalize: bool = True):
         self.importance_type = importance_type
         self.normalize = normalize
-    
-    def extract(
-        self,
-        model: Any,
-        feature_names: List[str],
-    ) -> Tuple[np.ndarray, pl.DataFrame]:
-        """
-        提取 LightGBM 特征重要性
-        
-        Args:
-            model: 训练好的 LightGBM 模型
-            feature_names: 特征名列表
-            
-        Returns:
-            (importance_vector, importance_df) 元组
-        """
+
+    def extract(self, model: Any, feature_names: List[str]) -> Tuple[np.ndarray, pl.DataFrame]:
         try:
             import lightgbm as lgb
-            if isinstance(model, lgb.Booster):
-                importance = model.feature_importance(importance_type=self.importance_type)
-            else:
-                importance = np.ones(len(feature_names))
-        except:
-            importance = np.ones(len(feature_names))
-        
-        # 归一化
-        if self.normalize and np.sum(importance) > 0:
+        except ImportError as exc:
+            raise ImportError("lightgbm is required for LightGBMImportanceExtractor") from exc
+
+        if not isinstance(model, lgb.Booster):
+            importance = np.zeros(len(feature_names), dtype=np.float32)
+            return pluck_importance(feature_names, importance)
+
+        importance = model.feature_importance(importance_type=self.importance_type).astype(np.float32)
+        if importance.shape[0] != len(feature_names):
+            raise ValueError(
+                "Feature importance length mismatch: "
+                f"{importance.shape[0]} vs {len(feature_names)}"
+            )
+
+        if self.normalize and float(np.sum(importance)) > 0:
             importance = importance / np.sum(importance)
-        
-        # 创建 DataFrame
-        df = pl.DataFrame({
-            "feature": feature_names,
-            "importance": importance,
-        }).sort("importance", descending=True)
-        
-        return importance, df
+
+        return pluck_importance(feature_names, importance)
+
+
+def pluck_importance(feature_names: List[str], importance: np.ndarray) -> Tuple[np.ndarray, pl.DataFrame]:
+    df = pl.DataFrame({
+        "feature": feature_names,
+        "importance": importance,
+    }).sort("importance", descending=True)
+    return importance, df

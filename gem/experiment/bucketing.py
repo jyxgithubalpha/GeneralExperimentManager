@@ -1,95 +1,63 @@
 """
-Bucketing - Bucket 管理和辅助函数
+Bucket utilities for execution planning.
 """
 
-from typing import Callable, Dict, List, Optional, TYPE_CHECKING
+from __future__ import annotations
 
-if TYPE_CHECKING:
-    from ..data.data_dataclasses import SplitSpec
-    from .state_policy import StatePolicyMode
+from typing import Callable, Dict, List, Optional
+
+from ..data.data_dataclasses import SplitSpec
 
 
-def quarter_bucket_fn(splitspec: "SplitSpec") -> str:
-    """按季度分组的 bucket 函数"""
-    test_start = splitspec.test_date_list[0] if splitspec.test_date_list else 0
+def _get_test_start(splitspec: SplitSpec) -> int:
+    return splitspec.test_date_list[0] if splitspec.test_date_list else 0
+
+
+def quarter_bucket_fn(splitspec: SplitSpec) -> str:
+    test_start = _get_test_start(splitspec)
     year = test_start // 10000
     month = (test_start % 10000) // 100
     quarter = (month - 1) // 3 + 1
     return f"{year}Q{quarter}"
 
 
-def month_bucket_fn(splitspec: "SplitSpec") -> str:
-    """按月分组的 bucket 函数"""
-    test_start = splitspec.test_date_list[0] if splitspec.test_date_list else 0
+def month_bucket_fn(splitspec: SplitSpec) -> str:
+    test_start = _get_test_start(splitspec)
     year = test_start // 10000
     month = (test_start % 10000) // 100
     return f"{year}M{month:02d}"
 
 
 class BucketManager:
-    """
-    Bucket 管理器
-    
-    负责:
-    - 将 splits 分组到 buckets
-    - 管理 bucket 间的执行顺序
-    """
-    
-    def __init__(
-        self,
-        bucket_fn: Optional[Callable[["SplitSpec"], str]] = None,
-    ):
+    def __init__(self, bucket_fn: Optional[Callable[[SplitSpec], str]] = None):
         self.bucket_fn = bucket_fn or quarter_bucket_fn
-    
-    def group_splits(
-        self,
-        splitspecs: List["SplitSpec"],
-    ) -> Dict[str, List["SplitSpec"]]:
-        """
-        将 splits 分组到 buckets
-        """
-        buckets: Dict[str, List["SplitSpec"]] = {}
-        
+
+    def group_splits(self, splitspecs: List[SplitSpec]) -> Dict[str, List[SplitSpec]]:
+        buckets: Dict[str, List[SplitSpec]] = {}
         for spec in splitspecs:
             key = self.bucket_fn(spec)
-            if key not in buckets:
-                buckets[key] = []
-            buckets[key].append(spec)
-        
+            buckets.setdefault(key, []).append(spec)
         return buckets
-    
-    def get_bucket_order(
-        self,
-        buckets: Dict[str, List["SplitSpec"]],
-    ) -> List[str]:
-        """
-        获取 bucket 执行顺序 (按时间排序)
-        """
-        def get_min_test_start(key: str) -> int:
-            return min(s.test_date_list[0] if s.test_date_list else 0 for s in buckets[key])
-        
-        return sorted(buckets.keys(), key=get_min_test_start)
-    
-    def create_execution_plan(
-        self,
-        splitspecs: List["SplitSpec"],
-        mode: str,
-    ) -> List[List["SplitSpec"]]:
-        """
-        创建执行计划
-        """
-        
-        if mode == 'none':
-            # 全并行
-            return [splitspecs]
-        elif mode == 'per_split':
-            # 严格串行
-            sorted_specs = sorted(splitspecs, key=lambda s: s.test_date_list[0] if s.test_date_list else 0)
-            return [[s] for s in sorted_specs]
-        elif mode == 'bucket':
-            # Bucket 内并行，Bucket 间串行
-            buckets = self.group_splits(splitspecs)
+
+    def get_bucket_order(self, buckets: Dict[str, List[SplitSpec]]) -> List[str]:
+        return sorted(
+            buckets.keys(),
+            key=lambda key: min(_get_test_start(spec) for spec in buckets[key]),
+        )
+
+    def create_execution_plan(self, splitspecs: List[SplitSpec], mode: str) -> List[List[SplitSpec]]:
+        if mode == "none":
+            return [list(splitspecs)]
+
+        sorted_specs = sorted(splitspecs, key=_get_test_start)
+        if mode == "per_split":
+            return [[spec] for spec in sorted_specs]
+
+        if mode == "bucket":
+            buckets = self.group_splits(sorted_specs)
             order = self.get_bucket_order(buckets)
             return [buckets[key] for key in order]
-        else:
-            return [splitspecs]
+
+        raise ValueError(
+            f"Unknown execution mode '{mode}'. Expected one of: none, per_split, bucket."
+        )

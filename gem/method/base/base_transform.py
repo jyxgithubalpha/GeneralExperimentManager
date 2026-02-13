@@ -1,46 +1,36 @@
-"""
-DataProcessor - 数据处理器
+﻿"""
+DataProcessor - Data Processor
 
-包含:
-- BaseTransform: 变换基类
-- BaseTransformPipeline: 数据处理器（管理多个 Transform 的 pipeline）
-- StatsCalculator: 统计量计算器 (从 train/val 计算 X/y 的阈值, 均值, std 等)
-- FillNaNTransform: 填充缺失值
-- WinsorizeTransform: 缩尾处理
-- StandardizeTransform: 标准化
-- RankTransform: 排名变换
-- FeatureWeightTransform: 特征加权（利用 RollingState 中的权重）
+Includes:
+- BaseTransform: Transform base class
+- BaseTransformPipeline: Data processor (manages pipeline of multiple transforms)
+- StatsCalculator: Statistics calculator (computes X/y statistics like thresholds, mean, std from train/val)
+- FillNaNTransform: Fill missing values
+- WinsorizeTransform: Winsorization processing
+- StandardizeTransform: Standardization
+- RankTransform: Rank transformation
+- FeatureWeightTransform: Feature weighting (using weights from RollingState)
 
-流程:
-1. 从 SplitViews 的 train/val 计算统计量 (TransformStats)
-2. 使用 context (来自 RollingState) 进行特征加权
-3. 对 train/val/test 应用变换
-4. 返回变换后的数据和统计量
+Workflow:
+1. Compute statistics from train/val of SplitViews (TransformStats)
+2. Use context (from RollingState) for feature weighting
+3. Apply transforms to train/val/test
+4. Return transformed data and statistics
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Tuple, TYPE_CHECKING
 
-import numpy as np
-
-if TYPE_CHECKING:
-    from ...experiment.experiment_dataclasses import RollingState
-
-from ...data.data_dataclasses import SplitViews, SplitView, ProcessedViews
-from ..method_dataclasses import TransformState, TransformStats, RayDataBundle, RayDataViews
-
-
-# Transform 上下文类型别名
 TransformContext = Dict[str, Any]
 
 
 class BaseTransform(ABC):
     """
-    变换基类
+    Transform base class
     
-    支持通过 context 接收外部参数（如 RollingState 中的特征权重）。
-    子类可以通过 `self._context` 访问这些参数。
+    Supports receiving external parameters through context (e.g., feature weights from RollingState).
+    Subclasses can access these parameters via `self._context`.
     """
     
     def __init__(self):
@@ -48,30 +38,30 @@ class BaseTransform(ABC):
         self._context: TransformContext = {}
     
     def set_context(self, context: TransformContext) -> "BaseTransform":
-        """设置上下文参数（由 Pipeline 调用）"""
+        """Set context parameters (called by Pipeline)"""
         self._context = context
         return self
     
     def get_context_value(self, key: str, default: Any = None) -> Any:
-        """获取上下文中的值"""
+        """Get value from context"""
         return self._context.get(key, default)
     
     @abstractmethod
     def fit(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> "BaseTransform":
         """
-        拟合变换
+        Fit transform
         
         Args:
-            X: 特征矩阵
-            y: 标签
-            keys: 可选的键数组（如 date），用于分组计算
+            X: Feature array
+            y: Labels
+            keys: Optional key array (e.g., date) for grouped computation
         """
         pass
     
     @abstractmethod
     def transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
-        应用变换
+        Apply transform
         
         Returns:
             (X_transformed, y_transformed)
@@ -79,12 +69,12 @@ class BaseTransform(ABC):
         pass
     
     def fit_transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """拟合并变换"""
+        """Fit and transform"""
         self.fit(X, y, keys)
         return self.transform(X, y, keys)
     
     def inverse_transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """逆变换（可选实现）"""
+        """Inverse transform (optional implementation)"""
         return X, y
     
     @property
@@ -93,7 +83,7 @@ class BaseTransform(ABC):
 
 
 class FillNaNTransform(BaseTransform):
-    """填充缺失值"""
+    """Fill missing values"""
     
     def __init__(
         self,
@@ -147,7 +137,7 @@ class FillNaNTransform(BaseTransform):
 
 
 class WinsorizeTransform(BaseTransform):
-    """缩尾处理"""
+    """Winsorization processing"""
     
     def __init__(
         self,
@@ -214,7 +204,7 @@ class WinsorizeTransform(BaseTransform):
 
 
 class StandardizeTransform(BaseTransform):
-    """标准化"""
+    """Standardization"""
     
     def __init__(
         self,
@@ -291,7 +281,7 @@ class StandardizeTransform(BaseTransform):
 
 
 class RankTransform(BaseTransform):
-    """排名变换"""
+    """Rank transformation"""
     
     def __init__(
         self,
@@ -351,16 +341,16 @@ class RankTransform(BaseTransform):
 
 class FeatureWeightTransform(BaseTransform):
     """
-    特征加权变换
+    Feature weighting transform
     
-    从 context 中获取 feature_weights，对 X 进行加权。
-    支持多种加权方式:
+    Gets feature_weights from context and applies weighting to X.
+    Supports multiple weighting methods:
     - multiply: X * weights
     - softmax: X * softmax(weights)
-    - select_topk: 只保留 top-k 重要特征
+    - select_topk: Keep only top-k important features
     
-    context 中期望的 key:
-    - feature_weights: np.ndarray - 特征权重向量
+    Expected keys in context:
+    - feature_weights: np.ndarray - Feature weight vector
     """
     
     def __init__(
@@ -373,14 +363,14 @@ class FeatureWeightTransform(BaseTransform):
     ):
         """
         Args:
-            method: 加权方式
-            topk: 保留的 top-k 特征数量 (仅用于 select_topk)
-            temperature: softmax 温度 (仅用于 softmax)
-            fallback: 当 context 中没有 feature_weights 时的处理方式
-                - uniform: 均匀权重 (1/n_features)
-                - ones: 全 1 权重 (不变)
-                - skip: 跳过变换
-            context_key: 从 context 中读取权重的 key
+            method: Weighting method
+            topk: Number of top-k features to keep (only for select_topk)
+            temperature: softmax temperature (only for softmax)
+            fallback: Handling method when no feature_weights in context
+                - uniform: uniform weights (1/n_features)
+                - ones: all 1 weights (unchanged)
+                - skip: skip transform
+            context_key: Key to read weights from context
         """
         super().__init__()
         self.method = method
@@ -394,7 +384,7 @@ class FeatureWeightTransform(BaseTransform):
     def fit(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> "FeatureWeightTransform":
         n_features = X.shape[1]
         
-        # 从 context 获取权重
+        # Get weights from context
         raw_weights = self.get_context_value(self.context_key)
         
         if raw_weights is None:
@@ -404,7 +394,7 @@ class FeatureWeightTransform(BaseTransform):
         else:
             raw_weights = np.array(raw_weights, dtype=np.float32)
         
-        # 处理权重
+        # Process weights
         if self.method == "multiply":
             self._weights = raw_weights
         elif self.method == "softmax":
@@ -432,7 +422,7 @@ class FeatureWeightTransform(BaseTransform):
             return None
     
     def transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        # skip 模式且没有权重时跳过
+        # Skip transform in skip mode when no weights
         if self.fallback == "skip" and self._weights is None and self._selected_indices is None:
             return X, y
         
@@ -447,15 +437,102 @@ class FeatureWeightTransform(BaseTransform):
     
     @property
     def selected_feature_indices(self) -> Optional[np.ndarray]:
-        """获取选中的特征索引 (select_topk 模式)"""
+        """Get selected feature indices (select_topk mode)"""
         return self._selected_indices
+
+
+class FittedTransformPipeline:
+    """
+    Fitted Transform Pipeline
+    
+    Holds fitted transforms, can only transform but not fit.
+    """
+    
+    def __init__(
+        self,
+        transforms: List[BaseTransform],
+        context: TransformContext,
+        feature_names: Optional[List[str]] = None,
+    ):
+        self.transforms = transforms
+        self._context = context
+        self._feature_names = feature_names
+    
+    def transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
+        """Apply transforms"""
+        X_curr, y_curr = X.copy(), y.copy()
+        for transform in self.transforms:
+            X_curr, y_curr = transform.transform(X_curr, y_curr, keys)
+        return X_curr, y_curr
+    
+    def transform_views(self, views: "SplitViews") -> "SplitViews":
+        """
+        Apply transforms to all views of SplitViews
+        
+        Args:
+            views: Input views
+            
+        Returns:
+            Transformed SplitViews
+        """
+        from ...data.data_dataclasses import SplitView, SplitViews
+        
+        train_keys = views.train.keys.to_numpy()[:, 0] if views.train.keys is not None else None
+        val_keys = views.val.keys.to_numpy()[:, 0] if views.val.keys is not None else None
+        test_keys = views.test.keys.to_numpy()[:, 0] if views.test.keys is not None else None
+        
+        train_X, train_y = self.transform(views.train.X, views.train.y, train_keys)
+        val_X, val_y = self.transform(views.val.X, views.val.y, val_keys)
+        test_X, test_y = self.transform(views.test.X, views.test.y, test_keys)
+        
+        # Update feature names if select_topk transform is used
+        feature_names = self._feature_names
+        for transform in self.transforms:
+            if isinstance(transform, FeatureWeightTransform) and transform.selected_feature_indices is not None:
+                if feature_names is not None:
+                    feature_names = [feature_names[i] for i in transform.selected_feature_indices]
+        
+        return SplitViews(
+            train=SplitView(
+                indices=views.train.indices,
+                X=train_X,
+                y=train_y,
+                keys=views.train.keys,
+                feature_names=feature_names,
+                label_names=views.train.label_names,
+                extra=views.train.extra,
+            ),
+            val=SplitView(
+                indices=views.val.indices,
+                X=val_X,
+                y=val_y,
+                keys=views.val.keys,
+                feature_names=feature_names,
+                label_names=views.val.label_names,
+                extra=views.val.extra,
+            ),
+            test=SplitView(
+                indices=views.test.indices,
+                X=test_X,
+                y=test_y,
+                keys=views.test.keys,
+                feature_names=feature_names,
+                label_names=views.test.label_names,
+                extra=views.test.extra,
+            ),
+            split_spec=views.split_spec,
+        )
+    
+    @property
+    def feature_names(self) -> Optional[List[str]]:
+        return self._feature_names
 
 
 class BaseTransformPipeline:
     """
-    数据处理器
+    Data processor
     
-    管理多个 Transform 的 pipeline，支持通过 context 传递外部参数。
+    Manages pipeline of multiple transforms, supports passing external parameters through context.
     """
     
     def __init__(self, transforms: Optional[List[BaseTransform]] = None):
@@ -463,20 +540,20 @@ class BaseTransformPipeline:
         self._context: TransformContext = {}
     
     def set_context(self, context: TransformContext) -> "BaseTransformPipeline":
-        """设置上下文，传递给所有 transform"""
+        """Set context and pass to all transforms"""
         self._context = context
         for transform in self.transforms:
             transform.set_context(context)
         return self
     
     def add_transform(self, transform: BaseTransform) -> "BaseTransformPipeline":
-        """添加变换"""
+        """Add transform"""
         transform.set_context(self._context)
         self.transforms.append(transform)
         return self
     
     def fit(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> "BaseTransformPipeline":
-        """拟合所有变换"""
+        """Fit all transforms"""
         X_curr, y_curr = X.copy(), y.copy()
         for transform in self.transforms:
             transform.fit(X_curr, y_curr, keys)
@@ -484,23 +561,52 @@ class BaseTransformPipeline:
         return self
     
     def transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """应用所有变换"""
+        """Apply transforms"""
         X_curr, y_curr = X.copy(), y.copy()
         for transform in self.transforms:
             X_curr, y_curr = transform.transform(X_curr, y_curr, keys)
         return X_curr, y_curr
     
-    def fit_transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """拟合并变换"""
+    def fit_transform_arrays(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
+        """Fit and transform"""
         self.fit(X, y, keys)
         return self.transform(X, y, keys)
     
     def inverse_transform(self, X: np.ndarray, y: np.ndarray, keys: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """逆变换（反向遍历）"""
+        """Inverse transform (reverse order)"""
         X_curr, y_curr = X.copy(), y.copy()
         for transform in reversed(self.transforms):
             X_curr, y_curr = transform.inverse_transform(X_curr, y_curr, keys)
         return X_curr, y_curr
+    
+    def fit_on_train(
+        self,
+        train_view: "SplitView",
+        rolling_state: Optional["RollingState"] = None,
+    ) -> FittedTransformPipeline:
+        """
+        Fit on train view, return FittedTransformPipeline
+        
+        Args:
+            train_view: Training view
+            rolling_state: Rolling state (for getting context)
+            
+        Returns:
+            FittedTransformPipeline
+        """
+        context = {}
+        if rolling_state is not None:
+            context = rolling_state.to_transform_context()
+        self.set_context(context)
+        
+        train_keys = train_view.keys.to_numpy()[:, 0] if train_view.keys is not None else None
+        self.fit(train_view.X, train_view.y, train_keys)
+        
+        return FittedTransformPipeline(
+            transforms=self.transforms,
+            context=self._context,
+            feature_names=train_view.feature_names,
+        )
     
     def process_views(
         self,
@@ -508,17 +614,17 @@ class BaseTransformPipeline:
         context: Optional[TransformContext] = None,
     ) -> "SplitViews":
         """
-        处理 SplitViews
+        Process SplitViews
         
         Args:
-            views: 输入视图
-            context: 可选的上下文参数，可从 RollingState.to_transform_context() 获取
+            views: Input views
+            context: Optional context parameters, from RollingState.to_transform_context()
         
-        在 train 上 fit，然后 transform train/val/test
+        Fit on train, then transform train/val/test
         """
         from ...data.data_dataclasses import SplitView, SplitViews
         
-        # 设置 context
+        # Set context
         if context is not None:
             self.set_context(context)
         
@@ -532,7 +638,7 @@ class BaseTransformPipeline:
         val_X, val_y = self.transform(views.val.X, views.val.y, val_keys)
         test_X, test_y = self.transform(views.test.X, views.test.y, test_keys)
         
-        # 处理 select_topk 的 feature_names 更新
+        # Update feature names if select_topk transform is used
         feature_names = views.train.feature_names
         for transform in self.transforms:
             if isinstance(transform, FeatureWeightTransform) and transform.selected_feature_indices is not None:
@@ -570,7 +676,7 @@ class BaseTransformPipeline:
             split_spec=views.split_spec,
         )
     
-    def fit_transform(
+    def fit_transform_views(
         self,
         views: "SplitViews",
         rolling_state: Optional["RollingState"] = None,
@@ -578,23 +684,23 @@ class BaseTransformPipeline:
         upper_quantile: float = 0.99,
     ) -> Tuple["ProcessedViews", TransformStats]:
         """
-        完整的 fit + transform 流程，返回 ProcessedViews 和 TransformStats
+        Complete fit + transform workflow, returns ProcessedViews and TransformStats
         
         Args:
-            views: 输入视图
-            rolling_state: 滚动状态 (用于获取 context)
-            lower_quantile: 下分位数阈值
-            upper_quantile: 上分位数阈值
+            views: Input views
+            rolling_state: Rolling state (for getting context)
+            lower_quantile: Lower quantile threshold
+            upper_quantile: Upper quantile threshold
             
         Returns:
             (ProcessedViews, TransformStats)
         """
-        # 1. 从 RollingState 获取 context
+        # 1. Get context from RollingState
         context = {}
         if rolling_state is not None:
             context = rolling_state.to_transform_context()
         
-        # 2. 计算统计量
+        # 2. Compute transform statistics on train/val data.
         stats = StatsCalculator.compute(
             X_train=views.train.X,
             y_train=views.train.y,
@@ -604,10 +710,10 @@ class BaseTransformPipeline:
             upper_quantile=upper_quantile,
         )
         
-        # 3. 处理视图
+        # 3. Process views
         transformed_views = self.process_views(views, context)
         
-        # 4. 构建 ProcessedViews
+        # 4. Build ProcessedViews
         processed = ProcessedViews(
             train=transformed_views.train,
             val=transformed_views.val,
@@ -620,9 +726,24 @@ class BaseTransformPipeline:
         )
         
         return processed, stats
+
+    # Backward-compatible alias kept for existing external calls.
+    def fit_transform(
+        self,
+        views: "SplitViews",
+        rolling_state: Optional["RollingState"] = None,
+        lower_quantile: float = 0.01,
+        upper_quantile: float = 0.99,
+    ) -> Tuple["ProcessedViews", TransformStats]:
+        return self.fit_transform_views(
+            views=views,
+            rolling_state=rolling_state,
+            lower_quantile=lower_quantile,
+            upper_quantile=upper_quantile,
+        )
     
     def _collect_all_stats(self) -> Dict[str, Any]:
-        """收集所有 transform 的统计量"""
+        """Collect statistics from all transforms"""
         all_stats = {}
         for i, transform in enumerate(self.transforms):
             if transform.state is not None:
@@ -636,20 +757,20 @@ class BaseTransformPipeline:
         include_sample_weight: bool = True,
     ) -> Tuple[RayDataViews, TransformStats]:
         """
-        完整流程: transform -> 转换为 RayDataViews
+        Complete workflow: transform -> convert to RayDataViews
         
         Args:
-            views: 输入视图
-            rolling_state: 滚动状态
-            include_sample_weight: 是否包含样本权重
+            views: Input views
+            rolling_state: Rolling state
+            include_sample_weight: Whether to include sample weights
             
         Returns:
             (RayDataViews, TransformStats)
         """
         # 1. Fit transform
-        processed, stats = self.fit_transform(views, rolling_state)
+        processed, stats = self.fit_transform_views(views, rolling_state)
         
-        # 2. 获取样本权重 (如果有)
+        # 2. Get sample weights (if any)
         sample_weight_train = None
         sample_weight_val = None
         sample_weight_test = None
@@ -662,7 +783,7 @@ class BaseTransformPipeline:
                 sample_weight_val = weight_state.get_weights_for_view(processed.val)
                 sample_weight_test = weight_state.get_weights_for_view(processed.test)
         
-        # 3. 构建 RayDataBundle
+        # 3. Build RayDataBundle
         def _to_bundle(view: SplitView, weight: Optional[np.ndarray]) -> RayDataBundle:
             keys_arr = None
             if view.keys is not None:
@@ -689,13 +810,13 @@ class BaseTransformPipeline:
 
 class StatsCalculator:
     """
-    统计量计算器
+    Statistics calculator
     
-    从 train/val 数据计算 X 和 y 的统计量:
-    - 均值 (mean)
-    - 标准差 (std)
-    - 分位数 (quantiles)
-    - 中位数 (median)
+    Computes X and y statistics from train/val data:
+    - Mean
+    - Standard deviation
+    - Quantiles
+    - Median
     """
     
     @staticmethod
@@ -706,24 +827,24 @@ class StatsCalculator:
         y_val: Optional[np.ndarray] = None,
         lower_quantile: float = 0.01,
         upper_quantile: float = 0.99,
-        use_combined: bool = True,
+        use_combined: bool = False,
     ) -> TransformStats:
         """
-        计算统计量
+        Compute statistics
         
         Args:
-            X_train: 训练集特征
-            y_train: 训练集标签
-            X_val: 验证集特征 (可选)
-            y_val: 验证集标签 (可选)
-            lower_quantile: 下分位数
-            upper_quantile: 上分位数
-            use_combined: 是否合并 train 和 val 计算
+            X_train: Training set features
+            y_train: Training set labels
+            X_val: Validation set features (optional)
+            y_val: Validation set labels (optional)
+            lower_quantile: Lower quantile
+            upper_quantile: Upper quantile
+            use_combined: Whether to combine train and val for computation
             
         Returns:
             TransformStats
         """
-        # 合并数据 (如果需要)
+        # Combine data (if needed)
         if use_combined and X_val is not None:
             X = np.vstack([X_train, X_val])
             y = np.concatenate([y_train.ravel(), y_val.ravel()])
@@ -731,14 +852,14 @@ class StatsCalculator:
             X = X_train
             y = y_train.ravel() if y_train.ndim > 1 else y_train
         
-        # 计算 X 统计量
+        # Compute X statistics.
         X_mean = np.nanmean(X, axis=0)
         X_std = np.nanstd(X, axis=0)
         X_lower = np.nanquantile(X, lower_quantile, axis=0)
         X_upper = np.nanquantile(X, upper_quantile, axis=0)
         X_median = np.nanmedian(X, axis=0)
         
-        # 计算 y 统计量
+        # Compute y statistics.
         y_mean = np.array([np.nanmean(y)])
         y_std = np.array([np.nanstd(y)])
         y_lower = np.array([np.nanquantile(y, lower_quantile)])
@@ -767,14 +888,14 @@ class StatsCalculator:
         upper_quantile: float = 0.99,
     ) -> Dict[int, TransformStats]:
         """
-        按日期分组计算统计量
+        Compute statistics grouped by date
         
         Args:
-            X: 特征矩阵
-            y: 标签
-            keys: 日期键
-            lower_quantile: 下分位数
-            upper_quantile: 上分位数
+            X: Feature array
+            y: Labels
+            keys: Date keys
+            lower_quantile: Lower quantile
+            upper_quantile: Upper quantile
             
         Returns:
             {date: TransformStats}
@@ -796,3 +917,4 @@ class StatsCalculator:
             )
         
         return stats_by_date
+

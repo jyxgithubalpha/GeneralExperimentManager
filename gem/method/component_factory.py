@@ -1,7 +1,7 @@
-"""
-Component Registry - 组件注册器
-提供统一的接口来注册和创建不同机器学习框架的组件实例
-支持动态注册新的组件实现
+﻿"""
+Component Registry - Component registry
+Provides unified interface to register and create component instances for different machine learning frameworks
+Supports dynamic registration of new component implementations
 """
 
 
@@ -21,20 +21,20 @@ from .base import (
 
 class ComponentRegistry:
     """
-    组件注册器
+    Component registry
     
-    使用装饰器或显式注册方法来注册组件
+    Uses decorators or explicit registration methods to register components
     
     Example:
-        # 使用装饰器注册
+        # Use decorator registration
         @ComponentRegistry.register_trainer("lightgbm")
         class LightGBMTrainer(BaseTrainer):
             ...
         
-        # 显式注册
+        # Explicit registration
         ComponentRegistry.register("trainer", "xgboost", XGBoostTrainer)
         
-        # 创建组件
+        # Create component
         trainer = ComponentRegistry.create("trainer", "lightgbm")
     """
     
@@ -56,12 +56,12 @@ class ComponentRegistry:
         component_class: Type,
     ) -> None:
         """
-        注册组件
+        Register component
         
         Args:
-            component_type: 组件类型 (trainer, evaluator, importance_extractor, param_space, tuner, data_adapter, data_processor)
-            name: 组件名称 (如 lightgbm, xgboost)
-            component_class: 组件类
+            component_type: Component type (trainer, evaluator, importance_extractor, param_space, tuner, data_adapter, data_processor)
+            name: Component name (e.g., lightgbm, xgboost)
+            component_class: Component class
         """
         if component_type not in cls._registries:
             raise ValueError(f"Unknown component type: {component_type}. "
@@ -70,7 +70,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_trainer(cls, name: str) -> Callable[[Type[BaseTrainer]], Type[BaseTrainer]]:
-        """注册 Trainer 的装饰器"""
+        """Decorator for registering Trainer"""
         def decorator(component_class: Type[BaseTrainer]) -> Type[BaseTrainer]:
             cls.register("trainer", name, component_class)
             return component_class
@@ -78,7 +78,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_evaluator(cls, name: str) -> Callable[[Type[BaseEvaluator]], Type[BaseEvaluator]]:
-        """注册 Evaluator 的装饰器"""
+        """Decorator for registering Evaluator"""
         def decorator(component_class: Type[BaseEvaluator]) -> Type[BaseEvaluator]:
             cls.register("evaluator", name, component_class)
             return component_class
@@ -86,7 +86,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_importance_extractor(cls, name: str) -> Callable[[Type[BaseImportanceExtractor]], Type[BaseImportanceExtractor]]:
-        """注册 ImportanceExtractor 的装饰器"""
+        """Decorator for registering ImportanceExtractor"""
         def decorator(component_class: Type[BaseImportanceExtractor]) -> Type[BaseImportanceExtractor]:
             cls.register("importance_extractor", name, component_class)
             return component_class
@@ -94,7 +94,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_param_space(cls, name: str) -> Callable[[Type[BaseParamSpace]], Type[BaseParamSpace]]:
-        """注册 ParamSpace 的装饰器"""
+        """Decorator for registering ParamSpace"""
         def decorator(component_class: Type[BaseParamSpace]) -> Type[BaseParamSpace]:
             cls.register("param_space", name, component_class)
             return component_class
@@ -102,7 +102,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_tuner(cls, name: str) -> Callable[[Type[BaseTuner]], Type[BaseTuner]]:
-        """注册 Tuner 的装饰器"""
+        """Decorator for registering Tuner"""
         def decorator(component_class: Type[BaseTuner]) -> Type[BaseTuner]:
             cls.register("tuner", name, component_class)
             return component_class
@@ -110,7 +110,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_data_adapter(cls, name: str) -> Callable[[Type[BaseAdapter]], Type[BaseAdapter]]:
-        """注册 DataAdapter 的装饰器"""
+        """Decorator for registering DataAdapter"""
         def decorator(component_class: Type[BaseAdapter]) -> Type[BaseAdapter]:
             cls.register("data_adapter", name, component_class)
             return component_class
@@ -118,7 +118,7 @@ class ComponentRegistry:
     
     @classmethod
     def register_data_processor(cls, name: str) -> Callable[[Type[BaseTransformPipeline]], Type[BaseTransformPipeline]]:
-        """注册 DataProcessor 的装饰器"""
+        """Decorator for registering DataProcessor"""
         def decorator(component_class: Type[BaseTransformPipeline]) -> Type[BaseTransformPipeline]:
             cls.register("data_processor", name, component_class)
             return component_class
@@ -127,14 +127,14 @@ class ComponentRegistry:
     @classmethod
     def get(cls, component_type: str, name: str) -> Type:
         """
-        获取已注册的组件类
+        Get registered component class
         
         Args:
-            component_type: 组件类型
-            name: 组件名称
+            component_type: Component type
+            name: Component name
             
         Returns:
-            组件类
+            Component class
         """
         if component_type not in cls._registries:
             raise ValueError(f"Unknown component type: {component_type}")
@@ -149,15 +149,15 @@ class ComponentRegistry:
     @classmethod
     def create(cls, component_type: str, name: str, **kwargs) -> Any:
         """
-        创建组件实例
+        Create component instance
         
         Args:
-            component_type: 组件类型
-            name: 组件名称
-            **kwargs: 组件初始化参数
+            component_type: Component type
+            name: Component name
+            **kwargs: Component initialization parameters
             
         Returns:
-            组件实例
+            Component instance
         """
         component_class = cls.get(component_type, name)
         return component_class(**kwargs)
@@ -165,10 +165,10 @@ class ComponentRegistry:
     @classmethod
     def list_registered(cls, component_type: Optional[str] = None) -> Dict[str, List[str]]:
         """
-        列出已注册的组件
+        List registered components
         
         Args:
-            component_type: 可选，指定组件类型
+            component_type: Optional, specify component type
             
         Returns:
             {component_type: [names]}
@@ -181,22 +181,22 @@ class ComponentRegistry:
     
     @classmethod
     def create_trainer(cls, name: str = "lightgbm", **kwargs) -> BaseTrainer:
-        """创建 Trainer"""
+        """Create Trainer"""
         return cls.create("trainer", name, **kwargs)
     
     @classmethod
     def create_evaluator(cls, name: str = "lightgbm", **kwargs) -> BaseEvaluator:
-        """创建 Evaluator"""
+        """Create Evaluator"""
         return cls.create("evaluator", name, **kwargs)
     
     @classmethod
     def create_importance_extractor(cls, name: str = "lightgbm", **kwargs) -> BaseImportanceExtractor:
-        """创建 ImportanceExtractor"""
+        """Create ImportanceExtractor"""
         return cls.create("importance_extractor", name, **kwargs)
     
     @classmethod
     def create_param_space(cls, name: str = "lightgbm", **kwargs) -> BaseParamSpace:
-        """创建 ParamSpace"""
+        """Create ParamSpace"""
         return cls.create("param_space", name, **kwargs)
     
     @classmethod
@@ -207,7 +207,7 @@ class ComponentRegistry:
         base_params: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> BaseTuner:
-        """创建 Tuner"""
+        """Create Tuner"""
         if param_space is None:
             param_space = cls.create_param_space(name)
         if base_params is None:
@@ -216,17 +216,17 @@ class ComponentRegistry:
     
     @classmethod
     def create_data_adapter(cls, name: str = "lightgbm", **kwargs) -> BaseAdapter:
-        """创建 DataAdapter"""
+        """Create DataAdapter"""
         return cls.create("data_adapter", name, **kwargs)
     
     @classmethod
     def create_data_processor(cls, name: str = "default", **kwargs) -> BaseTransformPipeline:
-        """创建 DataProcessor"""
+        """Create DataProcessor"""
         return cls.create("data_processor", name, **kwargs)
 
 
 def _register_default_components():
-    """注册默认组件"""
+    """Register default components"""
     from .lgb import (
         LightGBMAdapter,
         LightGBMEvaluator,
@@ -246,5 +246,19 @@ def _register_default_components():
     ComponentRegistry.register("data_processor", "default", BaseTransformPipeline)
 
 
-# 模块加载时注册默认组件
-_register_default_components()
+# Register default components when module loads
+_DEFAULT_COMPONENTS_REGISTERED = False
+
+
+def register_default_components(force: bool = False) -> None:
+    """Register built-in components (idempotent by default)."""
+    global _DEFAULT_COMPONENTS_REGISTERED
+    if _DEFAULT_COMPONENTS_REGISTERED and not force:
+        return
+    _register_default_components()
+    _DEFAULT_COMPONENTS_REGISTERED = True
+
+
+# Backward-compatible import-time registration; now idempotent.
+register_default_components()
+

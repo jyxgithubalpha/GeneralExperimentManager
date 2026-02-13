@@ -1,17 +1,17 @@
 """
-DatasetAdapter - 数据集适配器基类
+DatasetAdapter - Dataset adapter base class
 
-将 ProcessedViews/SplitView/RayDataBundle 转换为各后端 dataset
+Convert ProcessedViews/SplitView/RayDataBundle to various backend datasets
 
-流程:
-1. pl.DataFrame -> numpy (在 SplitView/RayDataBundle 中完成)
-2. numpy -> ray.data.Dataset (通过 RayDataBundle.to_ray_dataset())
-3. numpy/ray.data -> 后端 dataset (如 lgb.Dataset)
+Process:
+1. pl.DataFrame -> numpy (completed in SplitView/RayDataBundle)
+2. numpy -> ray.data.Dataset (via RayDataBundle.to_ray_dataset())
+3. numpy/ray.data -> backend dataset (e.g., lgb.Dataset)
 
-支持的转换路径:
-- SplitView -> BackendDataset (直接转换)
-- RayDataBundle -> BackendDataset (从 numpy 转换)
-- RayDataBundle -> ray.data.Dataset -> BackendDataset (分布式)
+Supported conversion paths:
+- SplitView -> BackendDataset (direct conversion)
+- RayDataBundle -> BackendDataset (from numpy conversion)
+- RayDataBundle -> ray.data.Dataset -> BackendDataset (distributed)
 """
 
 from abc import ABC, abstractmethod
@@ -29,9 +29,9 @@ from ..method_dataclasses import RayDataBundle, RayDataViews
 
 class BaseAdapter(ABC):
     """
-    数据集适配器基类
+    Dataset adapter base class
     
-    负责将数据转换为特定后端的 dataset 格式
+    Responsible for converting data to specific backend dataset format
     """
     
     @abstractmethod
@@ -42,15 +42,15 @@ class BaseAdapter(ABC):
         **kwargs
     ) -> Any:
         """
-        将 SplitView 转换为后端 dataset
+        Convert SplitView to backend dataset
         
         Args:
-            view: SplitView 实例
-            reference: 参考 dataset (用于验证集/测试集)
-            **kwargs: 后端特定参数
+            view: SplitView instance
+            reference: Reference dataset (for validation/test sets)
+            **kwargs: Backend-specific parameters
             
         Returns:
-            后端 dataset 实例
+            Backend dataset instance
         """
         pass
     
@@ -62,15 +62,15 @@ class BaseAdapter(ABC):
         **kwargs
     ) -> Any:
         """
-        从 RayDataBundle 转换为后端 dataset
+        Convert from RayDataBundle to backend dataset
         
         Args:
-            bundle: RayDataBundle 实例
-            reference: 参考 dataset
-            **kwargs: 后端特定参数
+            bundle: RayDataBundle instance
+            reference: Reference dataset
+            **kwargs: Backend-specific parameters
             
         Returns:
-            后端 dataset 实例
+            Backend dataset instance
         """
         pass
     
@@ -80,11 +80,11 @@ class BaseAdapter(ABC):
         **kwargs
     ) -> Tuple[Any, Any, Any]:
         """
-        将 ProcessedViews 转换为 (train, val, test) 三元组
+        Convert ProcessedViews to (train, val, test) tuple
         
         Args:
-            views: ProcessedViews 实例
-            **kwargs: 后端特定参数
+            views: ProcessedViews instance
+            **kwargs: Backend-specific parameters
             
         Returns:
             (train_dataset, val_dataset, test_dataset)
@@ -100,11 +100,11 @@ class BaseAdapter(ABC):
         **kwargs
     ) -> Tuple[Any, Any, Any]:
         """
-        从 RayDataViews 转换为 (train, val, test) 三元组
+        Convert from RayDataViews to (train, val, test) tuple
         
         Args:
-            ray_views: RayDataViews 实例
-            **kwargs: 后端特定参数
+            ray_views: RayDataViews instance
+            **kwargs: Backend-specific parameters
             
         Returns:
             (train_dataset, val_dataset, test_dataset)
@@ -120,11 +120,11 @@ class BaseAdapter(ABC):
         **kwargs
     ) -> Dict[str, Any]:
         """
-        创建 datasets 字典
+        Create datasets dictionary
         
         Args:
-            views: ProcessedViews 实例
-            **kwargs: 后端特定参数
+            views: ProcessedViews instance
+            **kwargs: Backend-specific parameters
             
         Returns:
             {"train": dataset, "val": dataset, "test": dataset}
@@ -135,9 +135,9 @@ class BaseAdapter(ABC):
 
 class RayDataAdapter:
     """
-    Ray Data 适配器
+    Ray Data adapter
     
-    负责 pl.DataFrame/SplitView -> numpy -> ray.data.Dataset 的转换
+    Responsible for pl.DataFrame/SplitView -> numpy -> ray.data.Dataset conversion
     """
     
     @staticmethod
@@ -146,11 +146,11 @@ class RayDataAdapter:
         sample_weight: Optional[np.ndarray] = None,
     ) -> RayDataBundle:
         """
-        将 SplitView 转换为 RayDataBundle
+        Convert SplitView to RayDataBundle
         
         Args:
-            view: SplitView 实例
-            sample_weight: 可选的样本权重
+            view: SplitView instance
+            sample_weight: Optional sample weights
             
         Returns:
             RayDataBundle
@@ -174,11 +174,11 @@ class RayDataAdapter:
         sample_weights: Optional[Dict[str, np.ndarray]] = None,
     ) -> RayDataViews:
         """
-        将 ProcessedViews 转换为 RayDataViews
+        Convert ProcessedViews to RayDataViews
         
         Args:
-            views: ProcessedViews 实例
-            sample_weights: 可选的样本权重字典 {"train": ..., "val": ..., "test": ...}
+            views: ProcessedViews instance
+            sample_weights: Optional sample weights dictionary {"train": ..., "val": ..., "test": ...}
             
         Returns:
             RayDataViews
@@ -204,11 +204,11 @@ class RayDataAdapter:
         include_weight: bool = True,
     ) -> Dict[str, Any]:
         """
-        将 RayDataViews 转换为 ray.data.Dataset 字典
+        Convert RayDataViews to ray.data.Dataset dictionary
         
         Args:
-            ray_views: RayDataViews 实例
-            include_weight: 是否包含样本权重
+            ray_views: RayDataViews instance
+            include_weight: Whether to include sample weights
             
         Returns:
             {"train": ray.data.Dataset, "val": ..., "test": ...}
@@ -227,13 +227,13 @@ class RayDataAdapter:
         sample_weight: Optional[np.ndarray] = None,
     ) -> Any:
         """
-        直接从 numpy 数组创建 ray.data.Dataset
+        Create ray.data.Dataset directly from numpy arrays
         
         Args:
-            X: 特征矩阵
-            y: 标签
-            keys: 可选的键数组
-            sample_weight: 可选的样本权重
+            X: Feature matrix
+            y: Labels
+            keys: Optional key array
+            sample_weight: Optional sample weights
             
         Returns:
             ray.data.Dataset
