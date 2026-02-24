@@ -3,14 +3,14 @@ name: ${method.name}
 output_dir: ${hydra:runtime.output_dir}
 state_policy:
   _target_: gem.experiment.StatePolicyConfig
-  mode: per_split
+  mode: none
 n_trials: 0
 parallel_trials: 1
 use_ray_tune: null
 ray_address: null
 num_cpus: null
 num_gpus: null
-use_ray: false
+use_ray: true
 resource_request:
   trial_gpus: 0
   final_train_gpus: 0
