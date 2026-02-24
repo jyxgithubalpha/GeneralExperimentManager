@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Project runtime outputs
+outputs/
+bench/
+
+# OS noise
+.DS_Store
+Thumbs.db

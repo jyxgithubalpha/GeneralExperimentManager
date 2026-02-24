@@ -1,4 +1,4 @@
-# Quantile model placeholder
+# Quantile model defaults
 _target_: sklearn.linear_model.QuantileRegressor
 quantile: 0.5
 alpha: 0.0001

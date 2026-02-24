@@ -4,7 +4,7 @@ Data structure definitions for state management
 Architecture design:
 - BaseState: State base class, all pluggable states inherit from this class
 - RollingState: State container, manages multiple BaseState instances
-- Specific state classes: FeatureImportanceState, TuningState, DataWeightState, etc.
+- Specific state classes: FeatureImportanceState, TuningState, SampleWeightState, etc.
 """
 
 import pickle
@@ -18,7 +18,7 @@ import numpy as np
 import polars as pl
 
 from ..data.data_dataclasses import SplitSpec, SplitView
-from ..method.method_dataclasses import StateDelta, TrainConfig
+from ..method.method_dataclasses import StateDelta
 from ..utils.hash_utils import hash_feature_names
 
 
@@ -120,6 +120,7 @@ class ExperimentConfig:
     visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
 
     def __post_init__(self) -> None:
+        self.output_dir = Path(self.output_dir)
         if self.n_trials < 0:
             raise ValueError(f"n_trials must be >= 0, got {self.n_trials}")
         if self.parallel_trials <= 0:
@@ -137,14 +138,11 @@ class SplitTask:
     Attributes:
         split_id: Split ID
         splitspec: Split specification
-        seed: Random seed
         resource_request: Resource request
     """
     split_id: int
     splitspec: SplitSpec
-    seed: int = 42
     resource_request: ResourceRequest = field(default_factory=ResourceRequest)
-    train_config: Optional["TrainConfig"] = None
 
 
 @dataclass

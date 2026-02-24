@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import polars as pl
 
-from .utils import remove_quotes_from_list
+from .utils import to_clean_list
 
 
 # =============================================================================
@@ -182,11 +182,11 @@ class AlignPreprocessor(MultiSourceDataPreprocessor):
         align_key_train_source_list: Optional[List[str]] = None,
         align_key_eval_source_list: Optional[List[str]] = None,
     ):
-        self.key_cols = remove_quotes_from_list(key_cols) or ["date", "code"]
-        self._align_key_train_source_list = remove_quotes_from_list(
+        self.key_cols = to_clean_list(key_cols) or ["date", "code"]
+        self._align_key_train_source_list = to_clean_list(
             align_key_train_source_list
         )
-        self._align_key_eval_source_list = remove_quotes_from_list(
+        self._align_key_eval_source_list = to_clean_list(
             align_key_eval_source_list
         )
         self._align_key_train: Optional[pl.DataFrame] = None

@@ -1,0 +1,11 @@
+defaults:
+  - base
+  - _self_
+
+n_trials: 1
+use_ray: true
+resource_request:
+  trial_gpus: 1
+  final_train_gpus: 1
+  trial_cpus: 8
+  final_train_cpus: 8

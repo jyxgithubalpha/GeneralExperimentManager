@@ -1,7 +1,6 @@
 defaults:
   - model: xgb
-  - train_config: xgb
-  - experiment_config: xgb
+  - train_config: gbdt
   - trainer: xgb
   - evaluator: regression
   - importance_extractor: xgb
@@ -9,3 +8,12 @@ defaults:
   - adapter: xgb
   - transform_pipeline: defaults
   - _self_
+
+name: xgb
+
+train_config:
+  num_boost_round: 200
+  early_stopping_rounds: 50
+  feval_names: ["rmse"]
+  objective_name: "regression"
+  verbose_eval: 1

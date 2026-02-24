@@ -1,9 +1,13 @@
 defaults:
   - model: torch_ft
-  - train_config: torch_ft
-  - experiment_config: torch
-  - trainer: torch_ft
+  - train_config: torch
+  - trainer: torch
   - evaluator: regression
   - importance_extractor: torch
   - transform_pipeline: defaults
   - _self_
+
+name: ft_transformer
+
+trainer:
+  batch_size: 512

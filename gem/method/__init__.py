@@ -41,7 +41,6 @@ from .method_dataclasses import (
     TrainConfig,
     TransformState,
     TransformStats,
-    TuneConfig,
     TuneResult,
 )
 from .method_factory import MethodFactory
@@ -81,7 +80,6 @@ __all__ = [
     "TrainConfig",
     "TransformState",
     "TransformStats",
-    "TuneConfig",
     "TuneResult",
     "MethodFactory",
 ]

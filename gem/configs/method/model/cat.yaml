@@ -1,4 +1,4 @@
-# CatBoost model placeholder (not used directly by trainers)
+# CatBoost model defaults
 _target_: catboost.CatBoostRegressor
 loss_function: "RMSE"
 learning_rate: 0.05

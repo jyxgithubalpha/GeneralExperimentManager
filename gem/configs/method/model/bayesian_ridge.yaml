@@ -1,2 +1,2 @@
-# Bayesian Ridge model placeholder
+# Bayesian Ridge model defaults
 _target_: sklearn.linear_model.BayesianRidge

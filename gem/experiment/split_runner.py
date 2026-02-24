@@ -36,11 +36,11 @@ class SplitRunner:
                     skip_reason=skip_reason,
                 )
 
-            method = self._build_method(ctx, split_id)
+            method, resolved_train_config = self._build_method(ctx, split_id)
 
             method_output = method.run(
                 views=split_views,
-                config=ctx.train_config,
+                config=resolved_train_config,
                 do_tune=ctx.do_tune and (method.tuner is not None),
                 save_dir=ctx.split_dir(split_id),
                 rolling_state=rolling_state,
@@ -121,8 +121,6 @@ class SplitRunner:
             use_ray_tune=ctx.use_ray_tune,
             base_seed=ctx.seed,
             split_id=split_id,
-            adapter_config=ctx.adapter_config,
-            transform_config=ctx.transform_config,
         )
 
     def _flatten_metrics(self, metrics_eval: Dict[str, object]) -> Dict[str, float]:

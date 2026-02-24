@@ -1,13 +1,12 @@
 _target_: gem.experiment.ExperimentConfig
-name: lgbm
+name: ${method.name}
 output_dir: ${hydra:runtime.output_dir}
 state_policy:
   _target_: gem.experiment.StatePolicyConfig
   mode: per_split
-n_trials: 1
+n_trials: 0
 parallel_trials: 1
 use_ray_tune: null
-seed: 42
 ray_address: null
 num_cpus: null
 num_gpus: null
@@ -15,10 +14,10 @@ use_ray: false
 resource_request:
   trial_gpus: 0
   final_train_gpus: 0
-  trial_cpus: 8
-  final_train_cpus: 8
+  trial_cpus: 4
+  final_train_cpus: 4
 visualization:
-  enabled: true
+  enabled: false
   export_csv: true
   heatmap: true
   animation: true
@@ -28,13 +27,7 @@ visualization:
   metrics_overview: true
   metrics_distribution: true
   metrics_per_metric: true
-  metric_names:
-    - pearsonr_ic
-    - pearsonr_icir
-    - top_ret
-    - top_ret_std
-    - top_ret_relative_improve_pct
-    - model_benchmark_corr
+  metric_names: null
   show: false
   interval: 800
   output_subdir: plots

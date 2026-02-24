@@ -1,4 +1,4 @@
-# XGBoost model placeholder (not used directly by trainers)
+# XGBoost model defaults
 _target_: xgboost.XGBRegressor
 objective: "reg:squarederror"
 learning_rate: 0.05

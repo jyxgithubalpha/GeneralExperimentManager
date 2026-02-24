@@ -7,10 +7,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 import polars as pl
-from hydra.core.hydra_config import HydraConfig
 
 from ..data.data_dataclasses import GlobalStore, SplitSpec
 from ..data.data_module import DataModule
@@ -31,17 +30,13 @@ class ExperimentManager:
         data_module: DataModule,
         train_config: TrainConfig,
         experiment_config: ExperimentConfig,
-        method_config: Optional[Dict] = None,
-        transform_pipeline_config: Optional[Dict] = None,
-        adapter_config: Optional[Dict] = None,
+        method_config: Optional[Mapping[str, Any]] = None,
     ):
         self.experiment_config = experiment_config
         self.split_generator = split_generator
         self.data_module = data_module
         self.train_config = train_config
         self.method_config = method_config
-        self.transform_pipeline_config = transform_pipeline_config
-        self.adapter_config = adapter_config
 
         self._results: Dict[int, SplitResult] = {}
         self._global_store: Optional[GlobalStore] = None
@@ -62,10 +57,7 @@ class ExperimentManager:
         return self._splitspec_list
 
     def _resolve_output_dir(self) -> Path:
-        try:
-            return Path(HydraConfig.get().runtime.output_dir)
-        except Exception:
-            return Path(self.experiment_config.output_dir)
+        return Path(self.experiment_config.output_dir)
 
     def run(self) -> Dict[int, SplitResult]:
         output_dir = self._resolve_output_dir()
@@ -114,27 +106,17 @@ class ExperimentManager:
             SplitTask(
                 split_id=spec.split_id,
                 splitspec=spec,
-                seed=self.experiment_config.seed + idx,
                 resource_request=self.experiment_config.resource_request,
-                train_config=self.train_config,
             )
-            for idx, spec in enumerate(splitspec_list)
+            for spec in splitspec_list
         ]
-        return sorted(
-            tasks,
-            key=lambda task: (
-                task.splitspec.test_date_list[0] if task.splitspec.test_date_list else 0,
-                task.split_id,
-            ),
-        )
+        return tasks
 
     def _build_context(self, output_dir: Path) -> RunContext:
         return RunContext(
             experiment_config=self.experiment_config,
             train_config=self.train_config,
             method_config=self.method_config,
-            transform_config=self.transform_pipeline_config,
-            adapter_config=self.adapter_config,
             output_dir=output_dir,
             seed=self.experiment_config.seed,
         )

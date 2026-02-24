@@ -4,10 +4,8 @@ from typing import Optional
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from hydra.utils import instantiate
-from hydra.core.hydra_config import HydraConfig
 
-from .data import DataModule, SplitGenerator
+from .bootstrap import build_runtime
 from .experiment import ExperimentManager
 
 
@@ -166,31 +164,22 @@ def _run_visualization_if_enabled(
 @hydra.main(config_path="configs", config_name="config", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     log.info("Configuration:\n%s", OmegaConf.to_yaml(cfg))
-    
-    split_generator = instantiate(cfg.splitgenerator)
-    data_module = instantiate(cfg.datamodule)
-    experiment_config = instantiate(cfg.method.experiment_config)
-    train_config = instantiate(cfg.method.train_config)
-    transform_pipeline_config = cfg.method.get("transform_pipeline", None)
-    adapter_config = cfg.method.get("adapter", None)
-    method_config = cfg.method
-    
+    runtime = build_runtime(cfg)
+
     manager = ExperimentManager(
-        split_generator=split_generator,
-        data_module=data_module,
-        experiment_config=experiment_config,
-        train_config=train_config,
-        method_config=method_config,
-        transform_pipeline_config=transform_pipeline_config,
-        adapter_config=adapter_config,
+        split_generator=runtime.split_generator,
+        data_module=runtime.data_module,
+        experiment_config=runtime.experiment_config,
+        train_config=runtime.train_config,
+        method_config=runtime.method_config,
     )
-    
-    log.info("Starting experiment: %s", experiment_config.name)
+
+    log.info("Starting experiment: %s", runtime.experiment_config.name)
     results = manager.run()
 
-    output_dir = Path(HydraConfig.get().runtime.output_dir)
+    output_dir = Path(runtime.experiment_config.output_dir)
     _run_visualization_if_enabled(manager, results, output_dir)
-    
+
     return results
 
 

@@ -6,7 +6,6 @@ Contains:
 - TransformState: Transform state
 - RayDataBundle: Ray Data bundle
 - RayDataViews: Ray Data view collection
-- TuneConfig: Search configuration
 - TrainConfig: Training configuration
 - TuneResult: Search result
 - FitResult: Training result
@@ -159,42 +158,6 @@ class RayDataViews:
 # =============================================================================
 
 @dataclass
-class TuneConfig:
-    """
-    Hyperparameter search configuration
-    
-    Attributes:
-        n_trials: Number of search trials
-        target_metric: Target metric
-        direction: Optimization direction (maximize/minimize)
-        use_ray_tune: Whether to use Ray Tune
-        use_optuna: Whether to use Optuna
-        parallel_trials: Number of parallel trials
-        use_warm_start: Whether to use historical hyperparameters as starting point
-        shrink_ratio: Search space shrink ratio
-    """
-    n_trials: int = 50
-    target_metric: str = "pearsonr_ic"
-    direction: str = "maximize"
-    use_ray_tune: bool = False
-    use_optuna: bool = True
-    parallel_trials: int = 1
-    use_warm_start: bool = True
-    shrink_ratio: float = 0.5
-    seed: int = 42
-
-    def __post_init__(self) -> None:
-        if self.n_trials < 0:
-            raise ValueError(f"n_trials must be >= 0, got {self.n_trials}")
-        if self.parallel_trials <= 0:
-            raise ValueError(
-                f"parallel_trials must be > 0, got {self.parallel_trials}"
-            )
-        if self.shrink_ratio < 0:
-            raise ValueError(f"shrink_ratio must be >= 0, got {self.shrink_ratio}")
-
-
-@dataclass
 class TrainConfig:
     """
     Training configuration
@@ -230,20 +193,6 @@ class TrainConfig:
             )
         if not self.feval_names:
             raise ValueError("feval_names must not be empty.")
-    
-    def with_params(self, **kwargs) -> "TrainConfig":
-        """Return new configuration with some parameters overridden"""
-        new_params = {**self.params, **kwargs}
-        return TrainConfig(
-            params=new_params,
-            num_boost_round=self.num_boost_round,
-            early_stopping_rounds=self.early_stopping_rounds,
-            feval_names=self.feval_names,
-            objective_name=self.objective_name,
-            seed=self.seed,
-            verbose_eval=self.verbose_eval,
-            use_ray_trainer=self.use_ray_trainer,
-        )
     
     def for_tuning(self, params: Dict[str, Any], seed: int) -> "TrainConfig":
         """Create lightweight configuration for tuning"""
@@ -366,14 +315,7 @@ class MethodOutput:
     transform_stats: Optional[TransformStats] = None
     state_delta: Optional[StateDelta] = None
     model_artifacts: Optional[Dict[str, Path]] = None
-    
-    @property
-    def metrics_search(self) -> Optional[Dict[str, float]]:
-        """Legacy API compatibility"""
-        if self.tune_result is None:
-            return None
-        return {"best_value": self.tune_result.best_value}
-    
+
     def get_state_delta(self) -> StateDelta:
         """Get delta for updating RollingState"""
         if self.state_delta is not None:

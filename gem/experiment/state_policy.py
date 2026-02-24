@@ -19,9 +19,6 @@ from .experiment_dataclasses import (
     TuningState,
 )
 
-# Backward compatibility alias
-DataWeightState = SampleWeightState
-
 
 def _result_importance_vector(result: SplitResult) -> Optional[np.ndarray]:
     if result.state_delta is not None and result.state_delta.importance_vector is not None:

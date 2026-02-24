@@ -1,11 +1,19 @@
 defaults:
   - model: lgbm
-  - train_config: lgbm
-  - experiment_config: lgbm
+  - train_config: gbdt
   - trainer: lgbm
-  - evaluator: lgbm
+  - evaluator: regression
   - importance_extractor: lgbm
   - tuner: lgbm
   - adapter: lgbm
   - transform_pipeline: defaults
   - _self_
+
+name: lgbm
+
+train_config:
+  num_boost_round: 10
+  early_stopping_rounds: 5
+  feval_names: ["pearsonr_ic"]
+  objective_name: "regression"
+  verbose_eval: 1

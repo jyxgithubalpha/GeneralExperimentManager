@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ...experiment.experiment_dataclasses import RollingState, TuningState
 
 from ..base import BaseTrainer, BaseTuner
-from ..method_dataclasses import TrainConfig, TuneConfig, TuneResult
+from ..method_dataclasses import TrainConfig, TuneResult
 from .cat_param_space import CatBoostParamSpace
 
 
@@ -244,24 +244,3 @@ class CatBoostTuner(BaseTuner):
     @property
     def last_best_value(self) -> Optional[float]:
         return self._last_best_value
-
-    @classmethod
-    def from_tune_config(
-        cls,
-        tune_config: TuneConfig,
-        base_params: Optional[Dict[str, Any]] = None,
-        param_space: Optional[CatBoostParamSpace] = None,
-    ) -> "CatBoostTuner":
-        return cls(
-            param_space=param_space,
-            base_params=base_params or {},
-            n_trials=tune_config.n_trials,
-            target_metric=tune_config.target_metric,
-            seed=tune_config.seed,
-            direction=tune_config.direction,
-            use_shrinkage=tune_config.shrink_ratio > 0,
-            shrink_ratio=tune_config.shrink_ratio,
-            use_ray_tune=tune_config.use_ray_tune,
-            parallel_trials=tune_config.parallel_trials,
-            use_warm_start=tune_config.use_warm_start,
-        )

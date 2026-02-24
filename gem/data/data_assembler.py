@@ -11,7 +11,7 @@ import numpy as np
 import polars as pl
 
 from .data_dataclasses import DatasetSpec, GlobalStore
-from .utils import remove_quotes_from_list
+from .utils import to_clean_list
 
 
 class GlobalDataAssembler(ABC):
@@ -24,11 +24,11 @@ class FeatureAssembler(GlobalDataAssembler):
     """Assemble multiple source tables into one model-ready `GlobalStore`."""
 
     def __init__(self, dataset_spec: DatasetSpec):
-        self.X_source_list = remove_quotes_from_list(dataset_spec.X_source_list)
-        self.y_source_list = remove_quotes_from_list(dataset_spec.y_source_list)
-        self.extra_source_list = remove_quotes_from_list(dataset_spec.extra_source_list)
-        self.key_cols = remove_quotes_from_list(dataset_spec.key_cols)
-        self.group_col = remove_quotes_from_list(dataset_spec.group_col)
+        self.X_source_list = to_clean_list(dataset_spec.X_source_list)
+        self.y_source_list = to_clean_list(dataset_spec.y_source_list)
+        self.extra_source_list = to_clean_list(dataset_spec.extra_source_list)
+        self.key_cols = to_clean_list(dataset_spec.key_cols)
+        self.group_col = to_clean_list(dataset_spec.group_col)
 
         if not self.key_cols:
             raise ValueError("dataset_spec.key_cols must not be empty.")

@@ -1,2 +1,2 @@
-# ARD Regression model placeholder
+# ARD Regression model defaults
 _target_: sklearn.linear_model.ARDRegression

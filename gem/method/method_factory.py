@@ -8,6 +8,7 @@ import inspect
 from typing import Any, Mapping, Optional
 
 from hydra.utils import get_class, instantiate
+from omegaconf import OmegaConf
 
 from .base import BaseMethod
 from .method_dataclasses import TrainConfig
@@ -24,10 +25,8 @@ class MethodFactory:
         use_ray_tune: bool,
         base_seed: int,
         split_id: int,
-        adapter_config: Optional[Any] = None,
-        transform_config: Optional[Any] = None,
-    ) -> BaseMethod:
-        config = dict(method_config or {})
+    ) -> tuple[BaseMethod, TrainConfig]:
+        config = MethodFactory._to_plain_mapping(method_config)
 
         required_keys = ["trainer", "evaluator", "importance_extractor"]
         missing = [key for key in required_keys if config.get(key) is None]
@@ -36,15 +35,21 @@ class MethodFactory:
                 f"Missing required method components in method_config: {missing}"
             )
 
+        model_config = config.get("model")
+        resolved_train_config = MethodFactory._resolve_train_config(
+            train_config,
+            model_config,
+        )
+
         adapter = None
-        if adapter_config is not None:
-            adapter = instantiate(adapter_config)
-        elif config.get("adapter") is not None:
+        if config.get("adapter") is not None:
             adapter = instantiate(config["adapter"])
 
         trainer_overrides = {}
         if adapter is not None:
             trainer_overrides["adapter"] = adapter
+        if model_config is not None:
+            trainer_overrides["model_config"] = model_config
         trainer = instantiate(
             config["trainer"],
             **MethodFactory._filter_supported_overrides(config["trainer"], trainer_overrides),
@@ -56,7 +61,7 @@ class MethodFactory:
         if n_trials > 0 and config.get("tuner") is not None:
             tuner_cfg = config["tuner"]
             tune_overrides = {
-                "base_params": train_config.params,
+                "base_params": resolved_train_config.params,
                 "n_trials": n_trials,
                 "parallel_trials": parallel_trials,
                 "use_ray_tune": use_ray_tune,
@@ -68,12 +73,10 @@ class MethodFactory:
             )
 
         transform_pipeline = None
-        if transform_config is not None:
-            transform_pipeline = instantiate(transform_config)
-        elif config.get("transform_pipeline") is not None:
+        if config.get("transform_pipeline") is not None:
             transform_pipeline = instantiate(config["transform_pipeline"])
 
-        return BaseMethod(
+        method = BaseMethod(
             transform_pipeline=transform_pipeline,
             adapter=adapter,
             trainer=trainer,
@@ -81,6 +84,7 @@ class MethodFactory:
             importance_extractor=importance_extractor,
             tuner=tuner,
         )
+        return method, resolved_train_config
 
     @staticmethod
     def _filter_supported_overrides(
@@ -107,3 +111,45 @@ class MethodFactory:
             for key, value in overrides.items()
             if key in signature.parameters
         }
+
+    @staticmethod
+    def _to_plain_mapping(config: Optional[Mapping[str, Any]]) -> dict[str, Any]:
+        if config is None:
+            return {}
+        if OmegaConf.is_config(config):
+            resolved = OmegaConf.to_container(config, resolve=True)
+            if isinstance(resolved, Mapping):
+                return dict(resolved)
+            return {}
+        if isinstance(config, Mapping):
+            return dict(config)
+        return {}
+
+    @staticmethod
+    def _extract_model_defaults(model_config: Optional[Any]) -> dict[str, Any]:
+        if model_config is None:
+            return {}
+        plain_model = MethodFactory._to_plain_mapping(model_config)
+        if not plain_model:
+            return {}
+        plain_model.pop("_target_", None)
+        return plain_model
+
+    @staticmethod
+    def _resolve_train_config(
+        train_config: TrainConfig,
+        model_config: Optional[Any],
+    ) -> TrainConfig:
+        model_defaults = MethodFactory._extract_model_defaults(model_config)
+        merged_params = dict(model_defaults)
+        merged_params.update(dict(train_config.params or {}))
+        return TrainConfig(
+            params=merged_params,
+            num_boost_round=train_config.num_boost_round,
+            early_stopping_rounds=train_config.early_stopping_rounds,
+            feval_names=list(train_config.feval_names),
+            objective_name=train_config.objective_name,
+            seed=train_config.seed,
+            verbose_eval=train_config.verbose_eval,
+            use_ray_trainer=train_config.use_ray_trainer,
+        )

@@ -1,9 +1,10 @@
 defaults:
   - model: elasticnet
-  - train_config: elasticnet
-  - experiment_config: sklearn
-  - trainer: elasticnet
+  - train_config: sklearn
+  - trainer: sklearn
   - evaluator: regression
   - importance_extractor: sklearn
   - transform_pipeline: defaults
   - _self_
+
+name: elasticnet

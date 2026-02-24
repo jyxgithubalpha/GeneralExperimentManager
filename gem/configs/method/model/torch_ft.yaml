@@ -1,3 +1,8 @@
-# Torch FT-Transformer model placeholder
-_target_: gem.method.torch.TorchTabularTrainer
+# Torch FT-Transformer model defaults
 model_type: ft_transformer
+d_token: 64
+n_heads: 4
+n_layers: 3
+dropout: 0.1
+activation: relu
+use_cls_token: true

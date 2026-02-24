@@ -1,3 +1,5 @@
-# Torch MLP model placeholder
-_target_: gem.method.torch.TorchTabularTrainer
+# Torch MLP model defaults
 model_type: mlp
+hidden_sizes: [256, 128]
+dropout: 0.1
+activation: relu

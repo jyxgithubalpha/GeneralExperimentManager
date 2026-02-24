@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from ..method.method_dataclasses import TrainConfig
-from .experiment_dataclasses import ExperimentConfig, StatePolicyConfig
+from .experiment_dataclasses import ExperimentConfig
 
 
 @dataclass(frozen=True)
@@ -17,14 +17,8 @@ class RunContext:
     experiment_config: ExperimentConfig
     train_config: TrainConfig
     method_config: Optional[Mapping[str, Any]] = None
-    transform_config: Optional[Any] = None
-    adapter_config: Optional[Any] = None
     output_dir: Path = Path(".")
     seed: int = 42
-
-    @property
-    def state_policy(self) -> StatePolicyConfig:
-        return self.experiment_config.state_policy
 
     @property
     def n_trials(self) -> int:
@@ -46,10 +40,5 @@ class RunContext:
 
     def split_dir(self, split_id: int) -> Path:
         path = self.output_dir / f"split_{split_id}"
-        path.mkdir(parents=True, exist_ok=True)
-        return path
-
-    def trial_dir(self, split_id: int, trial_id: int) -> Path:
-        path = self.split_dir(split_id) / f"trial_{trial_id}"
         path.mkdir(parents=True, exist_ok=True)
         return path

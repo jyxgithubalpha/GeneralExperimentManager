@@ -40,22 +40,13 @@ MODE_COLOR = {
 
 DEFAULT_METRIC_PRIORITY: Tuple[str, ...] = (
     "daily_top_ret",
+    "daily_top_ret_std",
     "daily_top_ret_relative_improve_pct",
     "daily_ic",
     "daily_icir_expanding",
     "daily_model_benchmark_corr",
     "daily_benchmark_top_ret",
 )
-
-# Keep compatibility with old scalar names used in config.
-METRIC_ALIASES = {
-    "top_ret": "daily_top_ret",
-    "top_ret_relative_improve_pct": "daily_top_ret_relative_improve_pct",
-    "model_benchmark_corr": "daily_model_benchmark_corr",
-    "benchmark_top_ret": "daily_benchmark_top_ret",
-    "pearsonr_ic": "daily_ic",
-    "pearsonr_icir": "daily_icir_expanding",
-}
 
 _INVALID_FILENAME_CHARS = re.compile(r"[^0-9A-Za-z._-]+")
 _EPS = 1e-8
@@ -188,8 +179,36 @@ class MetricsVisualizer:
     def _append_derived_metrics(self, daily_df: pl.DataFrame) -> pl.DataFrame:
         frames: List[pl.DataFrame] = [daily_df]
 
+        # Derive expanding std for daily top return.
+        top_ret_df = daily_df.filter(pl.col("metric") == "daily_top_ret").sort(
+            ["mode", "date"]
+        )
+        if not top_ret_df.is_empty():
+            top_ret_std_parts: List[pl.DataFrame] = []
+            for mode in top_ret_df["mode"].unique().to_list():
+                mode_df = top_ret_df.filter(pl.col("mode") == mode).sort("date")
+                if mode_df.is_empty():
+                    continue
+                vals = mode_df["value"].to_numpy()
+                n = vals.shape[0]
+                if n == 0:
+                    continue
+                cumsum = np.cumsum(vals)
+                cumsq = np.cumsum(vals * vals)
+                counts = np.arange(1, n + 1, dtype=np.float64)
+                means = cumsum / counts
+                var = np.maximum(cumsq / counts - means * means, 0.0)
+                std = np.sqrt(var)
+                part = mode_df.with_columns(
+                    pl.Series("value", std),
+                    pl.lit("daily_top_ret_std").alias("metric"),
+                ).select(["date", "date_dt", "mode", "metric", "value", "n_split"])
+                top_ret_std_parts.append(part)
+            if top_ret_std_parts:
+                frames.append(pl.concat(top_ret_std_parts, how="vertical"))
+
         # Derive daily relative improve pct from daily model and benchmark returns.
-        model_df = daily_df.filter(pl.col("metric") == "daily_top_ret").rename(
+        model_df = top_ret_df.rename(
             {"value": "model_value", "n_split": "model_n_split"}
         )
         bench_df = daily_df.filter(pl.col("metric") == "daily_benchmark_top_ret").rename(
@@ -253,24 +272,27 @@ class MetricsVisualizer:
         all_metrics = self.available_metrics()
         if not all_metrics:
             return []
-        available = set(all_metrics)
+        daily_metrics = [metric for metric in all_metrics if metric.startswith("daily_")]
+        available = set(daily_metrics)
 
         if metric_names:
-            resolved: List[str] = []
-            missing: List[str] = []
-            for metric in metric_names:
-                mapped = METRIC_ALIASES.get(metric, metric)
-                if mapped in available:
-                    resolved.append(mapped)
-                else:
-                    missing.append(metric)
+            resolved = list(dict.fromkeys(str(metric) for metric in metric_names))
+            non_daily = [metric for metric in resolved if not metric.startswith("daily_")]
+            if non_daily:
+                raise ValueError(
+                    f"Unsupported metric_names (daily-only): {non_daily}. "
+                    f"Available daily metrics: {sorted(available)}"
+                )
+            missing = [metric for metric in resolved if metric not in available]
             if missing:
-                log.warning("Some configured metric names are not available: %s", missing)
-            # keep order and remove duplicates
-            return list(dict.fromkeys(resolved))
+                raise ValueError(
+                    f"Unsupported metric_names: {missing}. "
+                    f"Available daily metrics: {sorted(available)}"
+                )
+            return resolved
 
         priority = [name for name in DEFAULT_METRIC_PRIORITY if name in available]
-        remaining = sorted(name for name in all_metrics if name not in set(priority))
+        remaining = sorted(name for name in daily_metrics if name not in set(priority))
         return priority + remaining
 
     def export_metric_data_csv(

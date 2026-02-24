@@ -1,9 +1,8 @@
 defaults:
   - splitgenerator: RollingWindowSplitGenerator
   - datamodule: defaults
-  - method: lgb_main
+  - method: lgbm
+  - experiment: gbdt_cpu
   - _self_
 
 seed: 42
-
-
