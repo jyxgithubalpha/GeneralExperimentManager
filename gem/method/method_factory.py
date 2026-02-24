@@ -27,14 +27,6 @@ class MethodFactory:
         split_id: int,
     ) -> tuple[BaseMethod, TrainConfig]:
         config = MethodFactory._to_plain_mapping(method_config)
-
-        required_keys = ["trainer", "evaluator", "importance_extractor"]
-        missing = [key for key in required_keys if config.get(key) is None]
-        if missing:
-            raise ValueError(
-                f"Missing required method components in method_config: {missing}"
-            )
-
         model_config = config.get("model")
         resolved_train_config = MethodFactory._resolve_train_config(
             train_config,

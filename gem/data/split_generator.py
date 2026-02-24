@@ -86,7 +86,6 @@ class RollingWindowSplitGenerator(SplitGenerator):
             train_date_list=train_date_list,
             val_date_list=val_date_list,
             test_date_list=test_date_list,
-            anchor_time=test_date_list[0] if test_date_list else None,
         )
 
     def generate(self) -> SplitGeneratorOutput:
@@ -220,7 +219,6 @@ class TimeSeriesKFoldSplitGenerator(SplitGenerator):
                     train_date_list=[int(d) for d in train_date_list],
                     val_date_list=[int(d) for d in val_date_list],
                     test_date_list=[int(d) for d in test_date_list],
-                    anchor_time=test_date_list[0] if test_date_list else None,
                 )
             )
 

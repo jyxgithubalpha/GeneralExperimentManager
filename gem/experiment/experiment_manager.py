@@ -56,11 +56,9 @@ class ExperimentManager:
     def splitspec_list(self) -> Optional[List[SplitSpec]]:
         return self._splitspec_list
 
-    def _resolve_output_dir(self) -> Path:
-        return Path(self.experiment_config.output_dir)
 
     def run(self) -> Dict[int, SplitResult]:
-        output_dir = self._resolve_output_dir()
+        output_dir = Path(self.experiment_config.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         log.info("%s", "=" * 60)

@@ -21,7 +21,6 @@ class SplitSpec:
     train_date_list: List[int]
     val_date_list: List[int]
     test_date_list: List[int]
-    anchor_time: Optional[int] = None
 
     def get_all_dates_range(self) -> Tuple[int, int]:
         all_dates = self.train_date_list + self.val_date_list + self.test_date_list

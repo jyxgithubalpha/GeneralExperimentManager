@@ -163,7 +163,6 @@ def _run_visualization_if_enabled(
 
 @hydra.main(config_path="configs", config_name="config", version_base="1.2")
 def main(cfg: DictConfig) -> None:
-    log.info("Configuration:\n%s", OmegaConf.to_yaml(cfg))
     runtime = build_runtime(cfg)
 
     manager = ExperimentManager(
