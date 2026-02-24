@@ -2,3 +2,7 @@ _target_: gem.method.common.RegressionEvaluator
 metric_names:
   - pearsonr_ic
   - pearsonr_icir
+  - top_ret
+  - top_ret_std
+  - model_benchmark_corr
+  - top_ret_relative_improve_pct

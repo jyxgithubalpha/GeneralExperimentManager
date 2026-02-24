@@ -4,7 +4,6 @@ PyTorch trainer for tabular regression models.
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -62,7 +61,6 @@ class TorchTabularTrainer(BaseTrainer):
         from torch import nn
         from torch.utils.data import DataLoader, TensorDataset
 
-        start_time = time.time()
         device = self._resolve_device(config)
         torch.manual_seed(config.seed)
         if device.type == "cuda":
@@ -130,7 +128,6 @@ class TorchTabularTrainer(BaseTrainer):
             best_iteration=max(1, best_epoch),
             params=dict(config.params),
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     def _build_loader(

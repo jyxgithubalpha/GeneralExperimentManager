@@ -5,7 +5,6 @@ state_policy:
   _target_: gem.experiment.StatePolicyConfig
   mode: per_split
 n_trials: 1
-trial_timeout: null
 parallel_trials: 1
 use_ray_tune: null
 seed: 42

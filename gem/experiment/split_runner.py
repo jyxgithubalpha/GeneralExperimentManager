@@ -4,8 +4,9 @@ Split execution orchestration for one split task.
 
 from __future__ import annotations
 
+import math
 import traceback
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from ..data.data_dataclasses import GlobalStore, SplitViews
 from ..method.method_factory import MethodFactory
@@ -46,6 +47,7 @@ class SplitRunner:
             )
 
             metrics_flat = self._flatten_metrics(method_output.metrics_eval)
+            metric_series_rows = self._flatten_metric_series(method_output.metrics_eval)
             test_predictions = None
             if "test" in method_output.metrics_eval:
                 test_predictions = method_output.metrics_eval["test"].predictions
@@ -62,6 +64,7 @@ class SplitRunner:
                 test_predictions=test_predictions,
                 test_keys=split_views.test.keys,
                 test_extra=split_views.test.extra,
+                metric_series_rows=metric_series_rows,
                 failed=False,
             )
 
@@ -114,7 +117,6 @@ class SplitRunner:
             method_config=ctx.method_config,
             train_config=ctx.train_config,
             n_trials=ctx.n_trials,
-            trial_timeout=ctx.trial_timeout,
             parallel_trials=ctx.parallel_trials,
             use_ray_tune=ctx.use_ray_tune,
             base_seed=ctx.seed,
@@ -131,3 +133,57 @@ class SplitRunner:
                 metrics_flat[f"{mode}_{name}"] = value
 
         return metrics_flat
+
+    @staticmethod
+    def _coerce_date_int(raw_value: object) -> Optional[int]:
+        if raw_value is None:
+            return None
+        try:
+            date_int = int(raw_value)
+        except (TypeError, ValueError):
+            return None
+        text = str(date_int)
+        if len(text) != 8:
+            return None
+        return date_int
+
+    def _flatten_metric_series(self, metrics_eval: Dict[str, object]) -> list[dict]:
+        rows: list[dict] = []
+
+        for mode, eval_result in metrics_eval.items():
+            series_map = getattr(eval_result, "series", None)
+            if not series_map:
+                continue
+
+            for metric_name, value_series in series_map.items():
+                if metric_name.endswith("_date"):
+                    continue
+                date_key = f"{metric_name}_date"
+                date_series = series_map.get(date_key)
+                if date_series is None:
+                    continue
+
+                value_list = value_series.to_list() if hasattr(value_series, "to_list") else list(value_series)
+                date_list = date_series.to_list() if hasattr(date_series, "to_list") else list(date_series)
+                n = min(len(value_list), len(date_list))
+
+                for idx in range(n):
+                    date_int = self._coerce_date_int(date_list[idx])
+                    if date_int is None:
+                        continue
+                    try:
+                        value = float(value_list[idx])
+                    except (TypeError, ValueError):
+                        continue
+                    if not math.isfinite(value):
+                        continue
+                    rows.append(
+                        {
+                            "mode": mode,
+                            "metric": metric_name,
+                            "date": date_int,
+                            "value": value,
+                        }
+                    )
+
+        return rows

@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -18,7 +16,6 @@ from ..data.data_dataclasses import GlobalStore, SplitSpec
 from ..data.data_module import DataModule
 from ..data.split_generator import SplitGenerator
 from ..method.method_dataclasses import TrainConfig
-from .bucketing import BucketManager
 from .executor import BaseExecutor, LocalExecutor, RayExecutor
 from .experiment_dataclasses import ExperimentConfig, RollingState, SplitResult, SplitTask
 from .run_context import RunContext
@@ -49,7 +46,6 @@ class ExperimentManager:
         self._results: Dict[int, SplitResult] = {}
         self._global_store: Optional[GlobalStore] = None
         self._splitspec_list: Optional[List[SplitSpec]] = None
-        self._start_time: Optional[float] = None
 
     @property
     def use_ray(self) -> bool:
@@ -72,7 +68,6 @@ class ExperimentManager:
             return Path(self.experiment_config.output_dir)
 
     def run(self) -> Dict[int, SplitResult]:
-        self._start_time = time.time()
         output_dir = self._resolve_output_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -108,10 +103,8 @@ class ExperimentManager:
 
         log.info("[6/6] Generating report...")
         self._generate_report(output_dir)
-
-        elapsed = time.time() - self._start_time
         log.info("%s", "=" * 60)
-        log.info("Experiment completed in %.1fs", elapsed)
+        log.info("Experiment completed")
         log.info("%s", "=" * 60)
 
         return self._results
@@ -188,19 +181,19 @@ class ExperimentManager:
             )
 
         ctx = self._build_context(output_dir)
-        task_map = {task.split_id: task for task in tasks}
 
-        bucket_manager = BucketManager(bucket_fn=policy_config.bucket_fn)
-        execution_plan = bucket_manager.create_execution_plan(
+        task_map = {task.split_id: task for task in tasks}
+        dag = DynamicTaskDAG(mode=mode, policy_config=policy_config)
+        execution_plan = dag.build_execution_plan(
             [task.splitspec for task in tasks],
-            mode,
+            bucket_fn=policy_config.bucket_fn,
         )
 
         global_ref = executor.put(self._global_store)
         state_ref = executor.put(init_state if mode != "none" else None)
 
         self._print_schedule_overview(mode, execution_plan)
-        dag = DynamicTaskDAG(mode=mode, policy_config=policy_config)
+
         submission = dag.submit(
             executor,
             execution_plan,
@@ -209,6 +202,7 @@ class ExperimentManager:
             state_ref,
             ctx,
         )
+
         result_refs = submission.result_refs_in_order
         results = executor.get(result_refs) if self.use_ray else result_refs
 
@@ -262,6 +256,7 @@ class ExperimentManager:
 
     def _generate_report(self, output_dir: Path) -> None:
         rows = []
+        series_rows = []
         for split_id, result in sorted(self._results.items()):
             status = "failed" if result.failed else ("skipped" if result.skipped else "success")
             row = {
@@ -275,6 +270,17 @@ class ExperimentManager:
             }
             if result.metrics:
                 row.update(result.metrics)
+            if result.metric_series_rows:
+                for item in result.metric_series_rows:
+                    series_rows.append(
+                        {
+                            "split_id": split_id,
+                            "mode": item.get("mode"),
+                            "metric": item.get("metric"),
+                            "date": item.get("date"),
+                            "value": item.get("value"),
+                        }
+                    )
             rows.append(row)
 
         df = pl.DataFrame(rows) if rows else pl.DataFrame(
@@ -293,6 +299,16 @@ class ExperimentManager:
         df.write_csv(csv_path)
         log.info("  - Saved: %s", csv_path)
 
+        if series_rows:
+            series_df = (
+                pl.DataFrame(series_rows)
+                .drop_nulls(["split_id", "mode", "metric", "date", "value"])
+                .sort(["metric", "mode", "date", "split_id"])
+            )
+            series_csv_path = output_dir / "daily_metric_series.csv"
+            series_df.write_csv(series_csv_path)
+            log.info("  - Saved: %s", series_csv_path)
+
         config_path = output_dir / "config.json"
         config_dict = {
             "name": self.experiment_config.name,
@@ -301,8 +317,6 @@ class ExperimentManager:
             "parallel_trials": self.experiment_config.parallel_trials,
             "use_ray_tune": self.experiment_config.use_ray_tune,
             "state_policy_mode": self.experiment_config.state_policy.mode,
-            "timestamp": datetime.now().isoformat(),
-            "elapsed_seconds": time.time() - (self._start_time or time.time()),
         }
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, default=str)

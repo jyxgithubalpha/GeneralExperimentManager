@@ -35,10 +35,6 @@ class RunContext:
         return self.experiment_config.parallel_trials
 
     @property
-    def trial_timeout(self) -> Optional[int]:
-        return self.experiment_config.trial_timeout
-
-    @property
     def use_ray_tune(self) -> bool:
         if self.experiment_config.use_ray_tune is not None:
             return bool(self.experiment_config.use_ray_tune)

@@ -5,7 +5,7 @@ Store - Artifact瀛樺偍绠＄悊
 
 
 import json
-from datetime import datetime
+from uuid import uuid4
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -17,7 +17,7 @@ class Store:
     
     def __init__(self, base_dir: Path, experiment_name: Optional[str] = None):
         self.base_dir = Path(base_dir)
-        self.experiment_name = experiment_name or datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.experiment_name = experiment_name or uuid4().hex
         self.experiment_dir = self.base_dir / self.experiment_name
         self._init_dirs()
         self._config_snapshot: Dict[str, Any] = {}

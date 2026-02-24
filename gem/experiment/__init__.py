@@ -21,7 +21,14 @@ from .experiment_dataclasses import (
 from .run_context import RunContext
 from .split_runner import SplitRunner
 from .executor import LocalExecutor, RayExecutor
-from .task_dag import DynamicTaskDAG, DagSubmission
+from .task_dag import (
+    DynamicTaskDAG,
+    DagSubmission,
+    build_execution_plan,
+    build_bucket_execution_plan,
+    quarter_bucket_fn,
+    month_bucket_fn,
+)
 
 __all__ = [
     "ExperimentManager",
@@ -39,4 +46,8 @@ __all__ = [
     "RayExecutor",
     "DynamicTaskDAG",
     "DagSubmission",
+    "build_execution_plan",
+    "build_bucket_execution_plan",
+    "quarter_bucket_fn",
+    "month_bucket_fn",
 ]

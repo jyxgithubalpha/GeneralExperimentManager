@@ -5,7 +5,7 @@ Dynamic task DAG builder based on state policy mode.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence, Callable
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .executor import BaseExecutor
 from .experiment_dataclasses import SplitTask, StatePolicyConfig
@@ -22,6 +22,63 @@ class DagSubmission:
     final_state_ref: Any
 
 
+def _get_test_start(splitspec: SplitSpec) -> int:
+    return splitspec.test_date_list[0] if splitspec.test_date_list else 0
+
+
+def quarter_bucket_fn(splitspec: SplitSpec) -> str:
+    test_start = _get_test_start(splitspec)
+    year = test_start // 10000
+    month = (test_start % 10000) // 100
+    quarter = (month - 1) // 3 + 1
+    return f"{year}Q{quarter}"
+
+
+def month_bucket_fn(splitspec: SplitSpec) -> str:
+    test_start = _get_test_start(splitspec)
+    year = test_start // 10000
+    month = (test_start % 10000) // 100
+    return f"{year}M{month:02d}"
+
+
+def build_execution_plan(
+    splitspecs: Sequence[SplitSpec],
+    mode: str,
+    bucket_fn: Optional[Callable[[SplitSpec], str]] = None,
+) -> List[List[SplitSpec]]:
+    if mode == "none":
+        return [list(splitspecs)]
+
+    sorted_specs = sorted(splitspecs, key=_get_test_start)
+    if mode == "per_split":
+        return [[spec] for spec in sorted_specs]
+
+    if mode == "bucket":
+        key_fn = bucket_fn or quarter_bucket_fn
+        buckets: Dict[str, List[SplitSpec]] = {}
+        for spec in sorted_specs:
+            key = key_fn(spec)
+            buckets.setdefault(key, []).append(spec)
+
+        bucket_order = sorted(
+            buckets.keys(),
+            key=lambda key: min(_get_test_start(spec) for spec in buckets[key]),
+        )
+        return [buckets[key] for key in bucket_order]
+
+    raise ValueError(
+        f"Unsupported DAG mode '{mode}'. Expected one of: none, per_split, bucket."
+    )
+
+
+def build_bucket_execution_plan(
+    splitspecs: Sequence[SplitSpec],
+    bucket_fn: Optional[Callable[[SplitSpec], str]] = None,
+) -> List[List[SplitSpec]]:
+    """Convenience helper for bucket-shaped DAG scheduling."""
+    return build_execution_plan(splitspecs, mode="bucket", bucket_fn=bucket_fn)
+
+
 class DynamicTaskDAG:
     """
     Build and submit split tasks as a dynamic DAG.
@@ -35,6 +92,14 @@ class DynamicTaskDAG:
     def __init__(self, mode: str, policy_config: StatePolicyConfig):
         self.mode = mode
         self.policy_config = policy_config
+
+    def build_execution_plan(
+        self,
+        splitspecs: Sequence[SplitSpec],
+        bucket_fn: Optional[Callable[[SplitSpec], str]] = None,
+    ) -> List[List[SplitSpec]]:
+        return build_execution_plan(splitspecs, mode=self.mode, bucket_fn=bucket_fn)
+
 
     def submit(
         self,

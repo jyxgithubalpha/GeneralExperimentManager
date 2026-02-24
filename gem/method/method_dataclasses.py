@@ -165,7 +165,6 @@ class TuneConfig:
     
     Attributes:
         n_trials: Number of search trials
-        timeout: Timeout in seconds
         target_metric: Target metric
         direction: Optimization direction (maximize/minimize)
         use_ray_tune: Whether to use Ray Tune
@@ -175,7 +174,6 @@ class TuneConfig:
         shrink_ratio: Search space shrink ratio
     """
     n_trials: int = 50
-    timeout: Optional[int] = None
     target_metric: str = "pearsonr_ic"
     direction: str = "maximize"
     use_ray_tune: bool = False
@@ -275,7 +273,6 @@ class TuneResult:
         best_value: Best objective value
         n_trials: Number of completed trials
         all_trials: All trial results
-        search_time: Search time taken
         warm_start_used: Whether warm start was used
         shrunk_space_used: Whether shrunk space was used
     """
@@ -283,7 +280,6 @@ class TuneResult:
     best_value: float
     n_trials: int
     all_trials: Optional[List[Dict[str, Any]]] = None
-    search_time: float = 0.0
     warm_start_used: bool = False
     shrunk_space_used: bool = False
 
@@ -299,7 +295,6 @@ class FitResult:
         best_iteration: Best iteration number
         params: Used hyperparameters
         seed: Random seed
-        train_time: Training time taken
         feature_importance: Feature importance DataFrame
         checkpoint_path: Ray checkpoint path (if using Ray Trainer)
     """
@@ -308,7 +303,6 @@ class FitResult:
     best_iteration: int
     params: Dict[str, Any]
     seed: int
-    train_time: float = 0.0
     feature_importance: Optional[pl.DataFrame] = None
     checkpoint_path: Optional[Path] = None
 

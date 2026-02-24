@@ -4,7 +4,6 @@ LightGBM trainer.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Any, Dict, Optional, TYPE_CHECKING, Tuple
 
@@ -127,7 +126,6 @@ class LightGBMTrainer(BaseTrainer):
         from ...utils.feval import FevalAdapterFactory
         from ...utils.objectives import ObjectiveFactory
 
-        start_time = time.time()
         dtrain, dval, datasets = self._build_datasets(views, sample_weights)
 
         params = dict(config.params)
@@ -159,7 +157,6 @@ class LightGBMTrainer(BaseTrainer):
             best_iteration=best_iteration,
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     def fit_from_ray_views(
@@ -169,7 +166,6 @@ class LightGBMTrainer(BaseTrainer):
         mode: str = "full",
     ) -> FitResult:
         lgb = self._import_lightgbm()
-        start_time = time.time()
 
         dtrain = self.adapter.from_ray_bundle(ray_views.train)
         dval = self.adapter.from_ray_bundle(ray_views.val, reference=dtrain)
@@ -193,7 +189,6 @@ class LightGBMTrainer(BaseTrainer):
             best_iteration=best_iteration,
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     def _fit_with_ray(
@@ -212,7 +207,6 @@ class LightGBMTrainer(BaseTrainer):
         lgb = self._import_lightgbm()
         from ..base.base_adapter import RayDataAdapter
 
-        start_time = time.time()
         weights = sample_weights or {}
 
         ray_views = RayDataAdapter.views_to_ray_views(views, weights)
@@ -266,6 +260,5 @@ class LightGBMTrainer(BaseTrainer):
             best_iteration=max(1, best_iteration),
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
             checkpoint_path=checkpoint.path if checkpoint else None,
         )

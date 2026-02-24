@@ -4,7 +4,6 @@ XGBoost trainer.
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -82,7 +81,6 @@ class XGBoostTrainer(BaseTrainer):
         sample_weights: Optional[Dict[str, Any]] = None,
     ) -> FitResult:
         xgb = self._import_xgboost()
-        start_time = time.time()
 
         dtrain, dval = self._build_datasets(views, sample_weights)
         params = dict(config.params)
@@ -107,7 +105,6 @@ class XGBoostTrainer(BaseTrainer):
             best_iteration=best_iteration,
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     def fit_from_ray_views(
@@ -117,7 +114,6 @@ class XGBoostTrainer(BaseTrainer):
         mode: str = "full",
     ) -> FitResult:
         xgb = self._import_xgboost()
-        start_time = time.time()
 
         dtrain = self.adapter.from_ray_bundle(ray_views.train)
         dval = self.adapter.from_ray_bundle(ray_views.val)
@@ -144,5 +140,4 @@ class XGBoostTrainer(BaseTrainer):
             best_iteration=best_iteration,
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
         )

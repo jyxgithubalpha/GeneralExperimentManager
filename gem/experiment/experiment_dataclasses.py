@@ -89,6 +89,12 @@ class VisualizationConfig:
     heatmap: bool = True
     animation: bool = True
     distribution: bool = True
+    metrics: bool = True
+    metrics_export_csv: bool = True
+    metrics_overview: bool = True
+    metrics_distribution: bool = True
+    metrics_per_metric: bool = True
+    metric_names: Optional[List[str]] = None
     show: bool = False
     interval: int = 800
     output_subdir: str = "plots"
@@ -103,7 +109,6 @@ class ExperimentConfig:
     output_dir: Path
     state_policy: "StatePolicyConfig" = None  # type: ignore  # Set via Hydra
     n_trials: int = 50
-    trial_timeout: Optional[int] = None
     parallel_trials: int = 1
     use_ray_tune: Optional[bool] = None
     seed: int = 42
@@ -173,6 +178,7 @@ class SplitResult:
     skip_reason: Optional[str] = None
     error_message: Optional[str] = None
     error_trace_path: Optional[str] = None
+    metric_series_rows: Optional[List[Dict[str, Any]]] = None
     test_predictions: Optional[np.ndarray] = None
     test_keys: Optional["pl.DataFrame"] = None
     test_extra: Optional["pl.DataFrame"] = None

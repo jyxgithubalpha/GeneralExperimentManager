@@ -5,7 +5,6 @@ Generic sklearn trainer for tabular regression models.
 from __future__ import annotations
 
 import inspect
-import time
 from typing import Any, Dict, Optional, Mapping
 
 from hydra.utils import instantiate
@@ -28,7 +27,6 @@ class SklearnTrainer(BaseTrainer):
         mode: str = "full",
         sample_weights: Optional[Dict[str, Any]] = None,
     ) -> FitResult:
-        start_time = time.time()
         model = self._build_model(config)
 
         X_train = views.train.X
@@ -47,7 +45,6 @@ class SklearnTrainer(BaseTrainer):
             best_iteration=1,
             params=dict(config.params),
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     def _build_model(self, config: TrainConfig):

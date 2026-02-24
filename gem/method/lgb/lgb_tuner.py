@@ -4,7 +4,6 @@ LightGBM hyper-parameter tuner.
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -22,7 +21,6 @@ class LightGBMTuner(BaseTuner):
         param_space: Optional[LightGBMParamSpace] = None,
         base_params: Optional[Dict[str, Any]] = None,
         n_trials: int = 50,
-        timeout: Optional[int] = None,
         target_metric: str = "pearsonr_ic",
         seed: int = 42,
         direction: str = "maximize",
@@ -35,7 +33,6 @@ class LightGBMTuner(BaseTuner):
         self.param_space = param_space or LightGBMParamSpace()
         self.base_params = base_params or {}
         self.n_trials = n_trials
-        self.timeout = timeout
         self.target_metric = target_metric
         self.seed = seed
         self.direction = direction
@@ -116,7 +113,6 @@ class LightGBMTuner(BaseTuner):
         except ImportError as exc:
             raise ImportError("optuna is required for LightGBMTuner") from exc
 
-        start_time = time.time()
         shrunk_space = self._build_shrunk_space(tuning_state)
 
         def objective(trial) -> float:
@@ -139,7 +135,7 @@ class LightGBMTuner(BaseTuner):
             except Exception:
                 warm_start_used = False
 
-        study.optimize(objective, n_trials=self.n_trials, timeout=self.timeout)
+        study.optimize(objective, n_trials=self.n_trials)
 
         best_params = {**self.base_params, **study.best_trial.params}
         best_value = float(study.best_value)
@@ -157,7 +153,6 @@ class LightGBMTuner(BaseTuner):
             best_value=best_value,
             n_trials=len(study.trials),
             all_trials=all_trials,
-            search_time=time.time() - start_time,
             warm_start_used=warm_start_used,
             shrunk_space_used=shrunk_space is not None,
         )
@@ -180,7 +175,6 @@ class LightGBMTuner(BaseTuner):
         except ImportError as exc:
             raise ImportError("optuna is required for LightGBMTuner") from exc
 
-        start_time = time.time()
         shrunk_space = self._build_shrunk_space(tuning_state)
         ray_search_space = self.param_space.to_ray_tune_space(shrunk_space)
 
@@ -239,7 +233,6 @@ class LightGBMTuner(BaseTuner):
             best_value=best_value,
             n_trials=len(analysis.trials),
             all_trials=all_trials,
-            search_time=time.time() - start_time,
             warm_start_used=warm_start_used,
             shrunk_space_used=shrunk_space is not None,
         )
@@ -286,7 +279,6 @@ class LightGBMTuner(BaseTuner):
             param_space=param_space,
             base_params=base_params or {},
             n_trials=tune_config.n_trials,
-            timeout=tune_config.timeout,
             target_metric=tune_config.target_metric,
             seed=tune_config.seed,
             direction=tune_config.direction,

@@ -20,7 +20,6 @@ class MethodFactory:
         method_config: Optional[Mapping[str, Any]],
         train_config: TrainConfig,
         n_trials: int,
-        trial_timeout: Optional[int],
         parallel_trials: int,
         use_ray_tune: bool,
         base_seed: int,
@@ -59,7 +58,6 @@ class MethodFactory:
             tune_overrides = {
                 "base_params": train_config.params,
                 "n_trials": n_trials,
-                "timeout": trial_timeout,
                 "parallel_trials": parallel_trials,
                 "use_ray_tune": use_ray_tune,
                 "seed": base_seed + split_id,

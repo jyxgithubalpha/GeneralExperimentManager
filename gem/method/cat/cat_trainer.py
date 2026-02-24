@@ -4,7 +4,6 @@ CatBoost trainer.
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -68,7 +67,6 @@ class CatBoostTrainer(BaseTrainer):
         sample_weights: Optional[Dict[str, Any]] = None,
     ) -> FitResult:
         CatBoostRegressor = self._import_catboost()
-        start_time = time.time()
 
         dtrain, dval = self._build_datasets(views, sample_weights)
 
@@ -98,7 +96,6 @@ class CatBoostTrainer(BaseTrainer):
             best_iteration=best_iteration,
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     def fit_from_ray_views(
@@ -108,7 +105,6 @@ class CatBoostTrainer(BaseTrainer):
         mode: str = "full",
     ) -> FitResult:
         CatBoostRegressor = self._import_catboost()
-        start_time = time.time()
 
         dtrain = self.adapter.from_ray_bundle(ray_views.train)
         dval = self.adapter.from_ray_bundle(ray_views.val)
@@ -139,7 +135,6 @@ class CatBoostTrainer(BaseTrainer):
             best_iteration=best_iteration,
             params=params,
             seed=config.seed,
-            train_time=time.time() - start_time,
         )
 
     @staticmethod
