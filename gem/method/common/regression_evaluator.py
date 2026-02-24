@@ -25,7 +25,7 @@ class RegressionEvaluator(BaseEvaluator):
         portfolio_top_k: int = 500,
         portfolio_money: float = 1.5e9,
         portfolio_min_trade_money: float = 1.0,
-        portfolio_ret_scale: float = 100.0,
+        portfolio_ret_scale: float = 1.0,
         ret_col_candidates: Optional[List[str]] = None,
         liquidity_col_candidates: Optional[List[str]] = None,
         benchmark_col_candidates: Optional[List[str]] = None,

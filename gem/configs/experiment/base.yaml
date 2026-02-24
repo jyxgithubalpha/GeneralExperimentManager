@@ -18,16 +18,23 @@ resource_request:
   final_train_cpus: 4
 visualization:
   enabled: false
-  export_csv: true
-  heatmap: true
-  animation: true
-  distribution: true
-  metrics: true
-  metrics_export_csv: true
-  metrics_overview: true
-  metrics_distribution: true
-  metrics_per_metric: true
-  metric_names: null
-  show: false
-  interval: 800
-  output_subdir: plots
+  output_subdir: visualization
+  render:
+    show: false
+    interval_ms: 800
+    dpi: 150
+  importance:
+    enabled: true
+    export_data: true
+    heatmap: true
+    animation: true
+    distribution: true
+    sort_by: mean
+    normalize: zscore
+  metrics:
+    enabled: true
+    export_data: true
+    overview: true
+    distribution: true
+    per_metric: true
+    metric_names: null

@@ -24,7 +24,7 @@
 
 ## Visualization Metric Names
 
-- `experiment.visualization.metric_names` accepts daily metric ids only.
+- `experiment.visualization.metrics.metric_names` accepts daily metric ids only.
 - Supported examples:
 - `daily_ic`
 - `daily_icir_expanding`
@@ -33,6 +33,18 @@
 - `daily_top_ret_relative_improve_pct`
 - `daily_model_benchmark_corr`
 - Old metric names (for example `pearsonr_ic`, `top_ret`) are no longer mapped and now fail fast.
+
+Example:
+
+```yaml
+experiment:
+  visualization:
+    enabled: true
+    metrics:
+      metric_names:
+        - daily_ic
+        - daily_top_ret
+```
 
 ## Minimal Template for a New Method
 

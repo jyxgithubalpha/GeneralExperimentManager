@@ -8,10 +8,11 @@ resource_request:
   final_train_cpus: 8
 visualization:
   enabled: true
-  metric_names:
-    - daily_ic
-    - daily_icir_expanding
-    - daily_top_ret
-    - daily_top_ret_std
-    - daily_top_ret_relative_improve_pct
-    - daily_model_benchmark_corr
+  metrics:
+    metric_names:
+      - daily_ic
+      - daily_icir_expanding
+      - daily_top_ret
+      - daily_top_ret_std
+      - daily_top_ret_relative_improve_pct
+      - daily_model_benchmark_corr

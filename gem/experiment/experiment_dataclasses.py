@@ -83,21 +83,40 @@ class ResourceRequest:
 
 
 @dataclass
-class VisualizationConfig:
-    enabled: bool = False
-    export_csv: bool = True
+class VisualizationRenderConfig:
+    show: bool = False
+    interval_ms: int = 800
+    dpi: int = 150
+
+
+@dataclass
+class ImportanceVizConfig:
+    enabled: bool = True
+    export_data: bool = True
     heatmap: bool = True
     animation: bool = True
     distribution: bool = True
-    metrics: bool = True
-    metrics_export_csv: bool = True
-    metrics_overview: bool = True
-    metrics_distribution: bool = True
-    metrics_per_metric: bool = True
+    sort_by: str = "mean"
+    normalize: str = "zscore"
+
+
+@dataclass
+class MetricsVizConfig:
+    enabled: bool = True
+    export_data: bool = True
+    overview: bool = True
+    distribution: bool = True
+    per_metric: bool = True
     metric_names: Optional[List[str]] = None
-    show: bool = False
-    interval: int = 800
-    output_subdir: str = "plots"
+
+
+@dataclass
+class VisualizationConfig:
+    enabled: bool = False
+    output_subdir: str = "visualization"
+    render: VisualizationRenderConfig = field(default_factory=VisualizationRenderConfig)
+    importance: ImportanceVizConfig = field(default_factory=ImportanceVizConfig)
+    metrics: MetricsVizConfig = field(default_factory=MetricsVizConfig)
 
 
 @dataclass

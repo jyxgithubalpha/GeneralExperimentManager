@@ -257,11 +257,7 @@ class PortfolioBacktestCalculator:
 
         model_mean = metrics.get(self.TOP_RET)
         if model_mean is not None:
-            denom = abs(bench_mean)
-            if denom > self.config.eps:
-                rel = (model_mean - bench_mean) / denom * 100.0
-            else:
-                rel = 0.0
+            rel = (model_mean - bench_mean) / abs(bench_mean)
             metrics[self.TOP_RET_RELATIVE_IMPROVE_PCT] = float(rel)
 
         return metrics, series

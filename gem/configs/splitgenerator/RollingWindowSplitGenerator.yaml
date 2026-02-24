@@ -1,5 +1,5 @@
 _target_: gem.data.RollingWindowSplitGenerator
-test_date_start: 20240601
+test_date_start: 20241201
 test_date_end: 20241231
 train_len: 60
 val_len: 10
