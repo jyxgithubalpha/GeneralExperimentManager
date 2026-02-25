@@ -16,12 +16,10 @@ Supported conversion paths:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-
-if TYPE_CHECKING:
-    import polars as pl
+import polars as pl
 
 from ...data.data_dataclasses import ProcessedViews, SplitView
 from ..method_dataclasses import RayDataBundle, RayDataViews

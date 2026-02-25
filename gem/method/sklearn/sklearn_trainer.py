@@ -2,7 +2,6 @@
 Generic sklearn trainer for tabular regression models.
 """
 
-from __future__ import annotations
 
 import inspect
 from typing import Any, Dict, Optional, Mapping

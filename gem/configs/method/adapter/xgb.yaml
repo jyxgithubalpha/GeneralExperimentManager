@@ -1,2 +1,2 @@
-_target_: gem.method.xgb.XGBoostAdapter
+_target_: gem.method.gbdt.XGBoostAdapter
 enable_categorical: false

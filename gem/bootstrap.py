@@ -2,7 +2,6 @@
 Runtime bootstrap utilities for Hydra configuration instantiation.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping

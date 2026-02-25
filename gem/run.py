@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 
 from .bootstrap import build_runtime
 from .experiment import ExperimentManager
-from .visualization import run_visualization_pipeline
+from .utils import run_visualization_pipeline
 
 
 log = logging.getLogger(__name__)

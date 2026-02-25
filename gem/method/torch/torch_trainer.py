@@ -2,7 +2,6 @@
 PyTorch trainer for tabular regression models.
 """
 
-from __future__ import annotations
 
 from typing import Any, Dict, Optional
 

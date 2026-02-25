@@ -1,2 +1,2 @@
-_target_: gem.method.cat.CatBoostTrainer
+_target_: gem.method.gbdt.CatBoostTrainer
 use_gpu: true

@@ -1,2 +1,2 @@
-_target_: gem.method.xgb.XGBoostTrainer
+_target_: gem.method.gbdt.XGBoostTrainer
 use_gpu: true

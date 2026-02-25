@@ -1,6 +1,6 @@
-_target_: gem.method.lgb.LightGBMTuner
-param_space:
-  _target_: gem.method.lgb.LightGBMParamSpace
+_target_: gem.method.UnifiedTuner
+search_space:
+  _target_: gem.method.gbdt.LightGBMSpace
 target_metric: pearsonr_ic
 direction: maximize
 use_shrinkage: false

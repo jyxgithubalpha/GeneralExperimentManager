@@ -1,2 +1,2 @@
-_target_: gem.method.cat.CatBoostAdapter
+_target_: gem.method.gbdt.CatBoostAdapter
 cat_features: []

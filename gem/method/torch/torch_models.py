@@ -2,7 +2,6 @@
 PyTorch tabular models (MLP and FT-Transformer).
 """
 
-from __future__ import annotations
 
 from typing import List, Optional
 

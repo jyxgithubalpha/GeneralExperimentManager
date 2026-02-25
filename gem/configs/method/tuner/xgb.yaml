@@ -1,3 +1,5 @@
-_target_: gem.method.xgb.XGBoostTuner
-param_space:
-  _target_: gem.method.xgb.XGBoostParamSpace
+_target_: gem.method.UnifiedTuner
+target_metric: rmse
+direction: minimize
+search_space:
+  _target_: gem.method.gbdt.XGBoostSpace

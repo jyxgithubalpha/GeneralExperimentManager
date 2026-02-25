@@ -1,27 +1,36 @@
 """
-Base components for Method module
+Base components for Method module.
 
-包含:
-- BaseTrainer: 训练器基类
-- BaseEvaluator: 评估器基类
-- BaseImportanceExtractor: 特征重要性提取器基类
-- BaseTuner: 超参调优器基类
-- BaseParamSpace: 参数空间基类
-- BaseMethod: 统一训练接口
-- BaseAdapter: 数据适配器基类
-- RayDataAdapter: Ray Data 适配器
-- BaseTransformPipeline: 变换 pipeline
-- StatsCalculator: 统计量计算器
-- Transform 实现类
+Contains:
+- BaseTrainer: Trainer base class
+- BaseEvaluator: Evaluator base class
+- BaseImportanceExtractor: Feature importance extractor base class
+- BaseMethod: Unified training interface
+- BaseAdapter: Data adapter base class
+- RayDataAdapter: Ray Data adapter
+- Tuning: UnifiedTuner, TunerBackend, BaseSearchSpace
+- Transforms: Pipeline and transform implementations
 """
 from .base_trainer import BaseTrainer
 from .base_evaluator import BaseEvaluator
 from .base_importance_extractor import BaseImportanceExtractor
-from .base_tuner import BaseTuner
-from .base_param_space import BaseParamSpace
 from .base_method import BaseMethod, MethodComponents
 from .base_adapter import BaseAdapter, RayDataAdapter
-from .base_transform import (
+from .evaluators import (
+    RegressionEvaluator,
+    PortfolioBacktestCalculator,
+    PortfolioBacktestConfig,
+)
+
+from .tuning import (
+    BaseSearchSpace,
+    TunerBackend,
+    OptunaBackend,
+    RayTuneBackend,
+    UnifiedTuner,
+)
+
+from .transforms import (
     BaseTransform,
     BaseTransformPipeline,
     FittedTransformPipeline,
@@ -29,9 +38,12 @@ from .base_transform import (
     FillNaNTransform,
     WinsorizeTransform,
     StandardizeTransform,
+    MADStandardizeTransform,
+    MinSampleFilterTransform,
     RankTransform,
     FeatureWeightTransform,
     StatsCalculator,
+    extract_date_keys,
 )
 
 __all__ = [
@@ -39,13 +51,21 @@ __all__ = [
     "BaseTrainer",
     "BaseEvaluator",
     "BaseImportanceExtractor",
-    "BaseTuner",
-    "BaseParamSpace",
     "BaseMethod",
     "MethodComponents",
     # Adapters
     "BaseAdapter",
     "RayDataAdapter",
+    # Evaluators
+    "RegressionEvaluator",
+    "PortfolioBacktestCalculator",
+    "PortfolioBacktestConfig",
+    # Tuning
+    "BaseSearchSpace",
+    "TunerBackend",
+    "OptunaBackend",
+    "RayTuneBackend",
+    "UnifiedTuner",
     # Transform
     "BaseTransform",
     "BaseTransformPipeline",
@@ -54,7 +74,10 @@ __all__ = [
     "FillNaNTransform",
     "WinsorizeTransform",
     "StandardizeTransform",
+    "MADStandardizeTransform",
+    "MinSampleFilterTransform",
     "RankTransform",
     "FeatureWeightTransform",
     "StatsCalculator",
+    "extract_date_keys",
 ]

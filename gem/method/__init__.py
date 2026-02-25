@@ -1,5 +1,15 @@
 """
-Method module public exports for the main (LightGBM-first) path.
+Method module public exports.
+
+Supports:
+- GBDT: LightGBM, XGBoost, CatBoost
+- sklearn: Various regression models
+- PyTorch: MLP, Transformer with NNI NAS support
+
+Core components:
+- UnifiedTuner: Framework-agnostic hyperparameter/architecture tuner
+- TunerBackend: Optuna, RayTune, NNI backends
+- BaseSearchSpace: Parameter/architecture search spaces
 """
 
 from .base import (
@@ -7,29 +17,39 @@ from .base import (
     BaseEvaluator,
     BaseImportanceExtractor,
     BaseMethod,
-    BaseParamSpace,
     BaseTrainer,
     BaseTransform,
     BaseTransformPipeline,
-    BaseTuner,
     FeatureWeightTransform,
     FillNaNTransform,
     FittedTransformPipeline,
+    MADStandardizeTransform,
     MethodComponents,
+    MinSampleFilterTransform,
     RankTransform,
     RayDataAdapter,
     StandardizeTransform,
     StatsCalculator,
     TransformContext,
     WinsorizeTransform,
+    BaseSearchSpace,
+    TunerBackend,
+    OptunaBackend,
+    RayTuneBackend,
+    UnifiedTuner,
 )
-from .common import RegressionEvaluator
-from .lgb import (
+from .base import RegressionEvaluator, PortfolioBacktestCalculator, PortfolioBacktestConfig
+from .gbdt import (
+    LightGBMSpace,
+    XGBoostSpace,
+    CatBoostSpace,
+    GBDTImportanceExtractor,
     LightGBMAdapter,
-    LightGBMImportanceExtractor,
-    LightGBMParamSpace,
+    XGBoostAdapter,
+    CatBoostAdapter,
     LightGBMTrainer,
-    LightGBMTuner,
+    XGBoostTrainer,
+    CatBoostTrainer,
 )
 from .method_dataclasses import (
     EvalResult,
@@ -46,31 +66,50 @@ from .method_dataclasses import (
 from .method_factory import MethodFactory
 
 __all__ = [
+    # Base classes
     "BaseAdapter",
     "BaseEvaluator",
     "BaseImportanceExtractor",
     "BaseMethod",
-    "BaseParamSpace",
     "BaseTrainer",
+    "MethodComponents",
+    # Adapters
+    "RayDataAdapter",
+    # Tuning (new unified system)
+    "BaseSearchSpace",
+    "TunerBackend",
+    "OptunaBackend",
+    "RayTuneBackend",
+    "UnifiedTuner",
+    # Transforms
     "BaseTransform",
     "BaseTransformPipeline",
-    "BaseTuner",
+    "FittedTransformPipeline",
+    "TransformContext",
     "FeatureWeightTransform",
     "FillNaNTransform",
-    "FittedTransformPipeline",
-    "MethodComponents",
+    "MADStandardizeTransform",
+    "MinSampleFilterTransform",
     "RankTransform",
-    "RayDataAdapter",
     "StandardizeTransform",
     "StatsCalculator",
-    "TransformContext",
     "WinsorizeTransform",
+    # GBDT
+    "LightGBMSpace",
+    "XGBoostSpace",
+    "CatBoostSpace",
+    "GBDTImportanceExtractor",
     "LightGBMAdapter",
-    "LightGBMImportanceExtractor",
-    "LightGBMParamSpace",
+    "XGBoostAdapter",
+    "CatBoostAdapter",
     "LightGBMTrainer",
-    "LightGBMTuner",
+    "XGBoostTrainer",
+    "CatBoostTrainer",
+    # Evaluators
     "RegressionEvaluator",
+    "PortfolioBacktestCalculator",
+    "PortfolioBacktestConfig",
+    # Dataclasses
     "EvalResult",
     "FitResult",
     "MethodOutput",
@@ -81,5 +120,6 @@ __all__ = [
     "TransformState",
     "TransformStats",
     "TuneResult",
+    # Factory
     "MethodFactory",
 ]

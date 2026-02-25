@@ -1,4 +1,4 @@
-_target_: gem.method.lgb.LightGBMAdapter
+_target_: gem.method.gbdt.LightGBMAdapter
 feature_name: auto
 categorical_feature: auto
 free_raw_data: true

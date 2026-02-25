@@ -2,7 +2,6 @@
 Objective factory for built-in and custom LightGBM objectives.
 """
 
-from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple, Union
 

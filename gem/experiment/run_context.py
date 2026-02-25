@@ -2,14 +2,12 @@
 Run-time context shared by manager, executor and split runner.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from ..method.method_dataclasses import TrainConfig
-from .experiment_dataclasses import ExperimentConfig
+from .configs import ExperimentConfig
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,6 @@
 Metric registry used by both LightGBM feval and offline evaluator.
 """
 
-from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List

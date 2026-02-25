@@ -2,13 +2,13 @@
 Dynamic task DAG builder based on state policy mode.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .executor import BaseExecutor
-from .experiment_dataclasses import SplitTask, StatePolicyConfig
+from .configs import StatePolicyConfig
+from .results import SplitTask
 from ..data.data_dataclasses import SplitSpec
 from .run_context import RunContext
 
@@ -26,19 +26,13 @@ def _get_test_start(splitspec: SplitSpec) -> int:
     return splitspec.test_date_list[0] if splitspec.test_date_list else 0
 
 
-def quarter_bucket_fn(splitspec: SplitSpec) -> str:
+def _default_bucket_fn(splitspec: SplitSpec) -> str:
+    """Default bucket function: group by quarter."""
     test_start = _get_test_start(splitspec)
     year = test_start // 10000
     month = (test_start % 10000) // 100
     quarter = (month - 1) // 3 + 1
     return f"{year}Q{quarter}"
-
-
-def month_bucket_fn(splitspec: SplitSpec) -> str:
-    test_start = _get_test_start(splitspec)
-    year = test_start // 10000
-    month = (test_start % 10000) // 100
-    return f"{year}M{month:02d}"
 
 
 def build_execution_plan(
@@ -54,7 +48,7 @@ def build_execution_plan(
         return [[spec] for spec in sorted_specs]
 
     if mode == "bucket":
-        key_fn = bucket_fn or quarter_bucket_fn
+        key_fn = bucket_fn or _default_bucket_fn
         buckets: Dict[str, List[SplitSpec]] = {}
         for spec in sorted_specs:
             key = key_fn(spec)
@@ -69,14 +63,6 @@ def build_execution_plan(
     raise ValueError(
         f"Unsupported DAG mode '{mode}'. Expected one of: none, per_split, bucket."
     )
-
-
-def build_bucket_execution_plan(
-    splitspecs: Sequence[SplitSpec],
-    bucket_fn: Optional[Callable[[SplitSpec], str]] = None,
-) -> List[List[SplitSpec]]:
-    """Convenience helper for bucket-shaped DAG scheduling."""
-    return build_execution_plan(splitspecs, mode="bucket", bucket_fn=bucket_fn)
 
 
 class DynamicTaskDAG:
@@ -100,6 +86,28 @@ class DynamicTaskDAG:
     ) -> List[List[SplitSpec]]:
         return build_execution_plan(splitspecs, mode=self.mode, bucket_fn=bucket_fn)
 
+    def _get_update_fns(
+        self,
+        executor: BaseExecutor,
+    ) -> tuple[Callable[[Any, Any], Any], Callable[[Any, List[Any]], Any]]:
+        """Get per-task and post-batch update functions based on mode."""
+        noop_task = lambda state_ref, _: state_ref
+        noop_batch = lambda state_ref, _: state_ref
+
+        if self.mode == "none":
+            return noop_task, noop_batch
+
+        if self.mode == "per_split":
+            def per_task(state_ref: Any, result_ref: Any) -> Any:
+                return executor.submit_update_state(state_ref, result_ref, self.policy_config)
+            return per_task, noop_batch
+
+        if self.mode == "bucket":
+            def post_batch(state_ref: Any, bucket_refs: List[Any]) -> Any:
+                return executor.submit_update_state_from_bucket(state_ref, bucket_refs, self.policy_config)
+            return noop_task, post_batch
+
+        raise ValueError(f"Unsupported DAG mode '{self.mode}'. Expected one of: none, per_split, bucket.")
 
     def submit(
         self,
@@ -110,82 +118,12 @@ class DynamicTaskDAG:
         init_state_ref: Any,
         ctx: RunContext,
     ) -> DagSubmission:
-        if self.mode == "none":
-            def per_task_update_fn(state_ref: Any, _result_ref: Any) -> Any:
-                return state_ref
+        per_task_fn, post_batch_fn = self._get_update_fns(executor)
 
-            def post_batch_update_fn(state_ref: Any, _bucket_refs: List[Any]) -> Any:
-                return state_ref
-
-            return self._submit_batches(
-                executor,
-                execution_plan,
-                task_map,
-                global_ref,
-                init_state_ref,
-                ctx,
-                per_task_update_fn,
-                post_batch_update_fn,
-            )
-        if self.mode == "per_split":
-            def per_task_update_fn(state_ref: Any, result_ref: Any) -> Any:
-                return executor.submit_update_state(
-                    state_ref,
-                    result_ref,
-                    self.policy_config,
-                )
-
-            def post_batch_update_fn(state_ref: Any, _bucket_refs: List[Any]) -> Any:
-                return state_ref
-
-            return self._submit_batches(
-                executor,
-                execution_plan,
-                task_map,
-                global_ref,
-                init_state_ref,
-                ctx,
-                per_task_update_fn,
-                post_batch_update_fn,
-            )
-        if self.mode == "bucket":
-            def per_task_update_fn(state_ref: Any, _result_ref: Any) -> Any:
-                return state_ref
-
-            def post_batch_update_fn(state_ref: Any, bucket_refs: List[Any]) -> Any:
-                return executor.submit_update_state_from_bucket(
-                    state_ref,
-                    bucket_refs,
-                    self.policy_config,
-                )
-
-            return self._submit_batches(
-                executor,
-                execution_plan,
-                task_map,
-                global_ref,
-                init_state_ref,
-                ctx,
-                per_task_update_fn,
-                post_batch_update_fn,
-            )
-        raise ValueError(
-            f"Unsupported DAG mode '{self.mode}'. Expected one of: none, per_split, bucket."
-        )
-
-    def _submit_batches(
-        self,
-        executor: BaseExecutor,
-        execution_plan: Sequence[Sequence[SplitSpec]],
-        task_map: Dict[int, SplitTask],
-        global_ref: Any,
-        state_ref: Any,
-        ctx: RunContext,
-        per_task_update_fn: Callable[[Any, Any], Any],
-        post_batch_update_fn: Callable[[Any, List[Any]], Any],
-    ) -> DagSubmission:
         split_ids: List[int] = []
         result_refs: List[Any] = []
+        state_ref = init_state_ref
+
         for batch in execution_plan:
             bucket_refs: List[Any] = []
             for spec in batch:
@@ -194,6 +132,7 @@ class DynamicTaskDAG:
                 bucket_refs.append(result_ref)
                 split_ids.append(task.split_id)
                 result_refs.append(result_ref)
-                state_ref = per_task_update_fn(state_ref, result_ref)
-            state_ref = post_batch_update_fn(state_ref, bucket_refs)
+                state_ref = per_task_fn(state_ref, result_ref)
+            state_ref = post_batch_fn(state_ref, bucket_refs)
+
         return DagSubmission(split_ids, result_refs, state_ref)

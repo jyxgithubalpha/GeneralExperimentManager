@@ -6,7 +6,7 @@ defaults:
   - importance_extractor: lgbm
   - tuner: lgbm
   - adapter: lgbm
-  - transform_pipeline: defaults
+  - transform_pipeline: with_feature_weight
   - _self_
 
 name: lgbm

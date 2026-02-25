@@ -1,1 +1,1 @@
-_target_: gem.method.lgb.LightGBMTrainer
+_target_: gem.method.gbdt.LightGBMTrainer

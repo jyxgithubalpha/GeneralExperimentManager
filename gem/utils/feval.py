@@ -1,9 +1,3 @@
-"""
-Feval适配器 - 将Metric适配为LightGBM feval
-"""
-
-
-
 from typing import Callable, Dict, List, Tuple
 
 import lightgbm as lgb
@@ -14,8 +8,6 @@ from .metrics import Metric, MetricRegistry
 
 
 class FevalAdapter:
-    """将Metric适配为LightGBM feval格式"""
-    
     def __init__(self, metric: Metric, split_data: Dict[str, SplitView], 
                  dataset_to_bundle: Dict[int, str]):
         self.metric = metric
@@ -33,8 +25,6 @@ class FevalAdapter:
 
 
 class FevalAdapterFactory:
-    """Feval适配器工厂"""
-    
     @staticmethod
     def create(metric_names: List[str], split_data: Dict[str, SplitView],
                datasets: Dict[str, lgb.Dataset]) -> List[Callable]:

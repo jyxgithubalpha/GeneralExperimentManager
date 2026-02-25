@@ -1,4 +1,4 @@
-_target_: gem.method.method_dataclasses.TrainConfig
+_target_: gem.method.TrainConfig
 params: {}
 num_boost_round: 1
 early_stopping_rounds: 1

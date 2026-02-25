@@ -2,7 +2,6 @@
 Data readers.
 """
 
-from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -152,9 +151,6 @@ class FeatherReader(DataReader):
         filters: Optional[Any] = None,
     ) -> pl.DataFrame:
         path = Path(source_spec.path)
-        if not path.exists():
-            raise FileNotFoundError(f"Source file does not exist: {path}")
-
         feather_reader = pa.ipc.open_file(str(path))
         batches = []
 

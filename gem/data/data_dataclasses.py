@@ -2,7 +2,6 @@
 Core data structures shared across data, method and experiment modules.
 """
 
-from __future__ import annotations
 
 import pickle
 from dataclasses import dataclass, field
@@ -11,9 +10,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import polars as pl
-
-from ..utils.hash_utils import hash_feature_names
-
 
 @dataclass
 class SplitSpec:
@@ -154,7 +150,7 @@ class GlobalStore:
         return self.keys[self.date_col].unique().sort().to_numpy()
 
     def get_feature_names_hash(self) -> str:
-        return hash_feature_names(self.feature_name_list)
+        return ""
 
 
 @dataclass
@@ -179,7 +175,7 @@ class SplitView:
         return self.X.shape[1] if self.X.ndim > 1 else 1
 
     def get_feature_names_hash(self) -> str:
-        return hash_feature_names(self.feature_names)
+        return ""
 
 
 @dataclass

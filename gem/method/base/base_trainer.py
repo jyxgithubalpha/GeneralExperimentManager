@@ -1,10 +1,10 @@
 """
-BaseTrainer - 训练器基类
+BaseTrainer - Trainer base class.
 
-支持:
-- 本地训练
-- Ray Trainer 分布式训练
-- 样本权重
+Supports:
+- Local training
+- Ray Trainer distributed training
+- Sample weights
 """
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
@@ -15,11 +15,11 @@ from ...data.data_dataclasses import ProcessedViews
 
 class BaseTrainer(ABC):
     """
-    训练器基类
-    
-    子类需实现 fit() 方法，返回 FitResult
+    Trainer base class.
+
+    Subclasses must implement fit() method, returning FitResult.
     """
-    
+
     @abstractmethod
     def fit(
         self,
@@ -29,15 +29,15 @@ class BaseTrainer(ABC):
         sample_weights: Optional[Dict[str, Any]] = None,
     ) -> "FitResult":
         """
-        训练模型
-        
+        Train model.
+
         Args:
-            views: 处理后的视图
-            config: 训练配置
-            mode: "full" 或 "tune"
-            sample_weights: 可选的样本权重 {"train": ..., "val": ...}
-            
+            views: Processed data views
+            config: Training configuration
+            mode: Training mode ("full" or "tune")
+            sample_weights: Optional sample weights dict
+
         Returns:
-            FitResult
+            FitResult with trained model
         """
         pass

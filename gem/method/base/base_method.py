@@ -2,25 +2,22 @@
 Method runtime pipeline: tune -> train -> evaluate -> importance -> artifacts.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-if TYPE_CHECKING:
-    from ...experiment.experiment_dataclasses import RollingState
-
+from ...experiment.states import RollingState
 from ...data.data_dataclasses import ProcessedViews, SplitViews
 from ..method_dataclasses import MethodOutput, StateDelta, TrainConfig, TuneResult
 from .base_adapter import BaseAdapter
 from .base_evaluator import BaseEvaluator
 from .base_importance_extractor import BaseImportanceExtractor
 from .base_trainer import BaseTrainer
-from .base_tuner import BaseTuner
-from .base_transform import BaseTransformPipeline
+from .tuning import UnifiedTuner
+from .transforms import BaseTransformPipeline
 
 
 @dataclass(frozen=True)
@@ -29,7 +26,7 @@ class MethodComponents:
     evaluator: BaseEvaluator
     importance_extractor: BaseImportanceExtractor
     adapter: Optional[BaseAdapter] = None
-    tuner: Optional[BaseTuner] = None
+    tuner: Optional[UnifiedTuner] = None
     transform_pipeline: Optional[BaseTransformPipeline] = None
 
 
@@ -42,7 +39,7 @@ class BaseMethod:
         trainer: Optional[BaseTrainer] = None,
         evaluator: Optional[BaseEvaluator] = None,
         importance_extractor: Optional[BaseImportanceExtractor] = None,
-        tuner: Optional[BaseTuner] = None,
+        tuner: Optional[UnifiedTuner] = None,
         **_: Any,
     ):
         self.framework = framework

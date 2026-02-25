@@ -2,7 +2,6 @@
 Torch feature importance extractor (weight-norm proxy).
 """
 
-from __future__ import annotations
 
 from typing import Any, List, Tuple
 

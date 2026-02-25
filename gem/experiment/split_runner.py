@@ -2,7 +2,6 @@
 Split execution orchestration for one split task.
 """
 
-from __future__ import annotations
 
 import math
 import traceback
@@ -10,8 +9,9 @@ from typing import Dict, Optional, Tuple
 
 from ..data.data_dataclasses import GlobalStore, SplitViews
 from ..method.method_factory import MethodFactory
-from .experiment_dataclasses import RollingState, SplitResult, SplitTask
+from .results import SplitResult, SplitTask
 from .run_context import RunContext
+from .states import RollingState
 
 
 class SplitRunner:

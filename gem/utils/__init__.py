@@ -1,5 +1,5 @@
 """Shared utility helpers."""
 
-from .hash_utils import hash_feature_names
+from .visualization import run_visualization_pipeline
 
-__all__ = ["hash_feature_names"]
+__all__ = ["run_visualization_pipeline"]

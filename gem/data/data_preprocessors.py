@@ -2,7 +2,6 @@
 Data preprocessing pipelines for single-source and multi-source tables.
 """
 
-from __future__ import annotations
 
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple

@@ -2,14 +2,15 @@
 Execution backends for split execution and state updates.
 """
 
-from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
 from ..data.data_dataclasses import GlobalStore
-from .experiment_dataclasses import RollingState, SplitResult, SplitTask, StatePolicyConfig
+from .configs import StatePolicyConfig
+from .results import SplitResult, SplitTask
 from .run_context import RunContext
+from .states import RollingState
 
 
 class BaseExecutor(ABC):
@@ -79,7 +80,7 @@ class LocalExecutor(BaseExecutor):
         result: SplitResult,
         config: StatePolicyConfig,
     ) -> RollingState:
-        from .state_policy import update_state
+        from .states import update_state
 
         return update_state(state, result, config)
 
@@ -89,7 +90,7 @@ class LocalExecutor(BaseExecutor):
         results: List[SplitResult],
         config: StatePolicyConfig,
     ) -> RollingState:
-        from .state_policy import update_state_from_bucket_results
+        from .states import update_state_from_bucket_results
 
         return update_state_from_bucket_results(state, results, config)
 
@@ -126,14 +127,14 @@ class RayExecutor(BaseExecutor):
 
         @ray.remote
         def update_state_remote(state, result, config):
-            from .state_policy import update_state
+            from .states import update_state
 
             return update_state(state, result, config)
 
         @ray.remote
         def update_state_from_bucket_remote(state, results, config):
             import ray as _ray
-            from .state_policy import update_state_from_bucket_results
+            from .states import update_state_from_bucket_results
 
             # Ray does not auto-resolve ObjectRefs nested inside a list argument.
             if results and isinstance(results[0], _ray.ObjectRef):

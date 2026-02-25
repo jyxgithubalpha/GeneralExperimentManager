@@ -1,59 +1,44 @@
-"""
-Experiment module - 实验管理
+"""Experiment module - 实验管理"""
 
-核心组件:
-- ExperimentManager: 实验编排入口
-- RunContext: 运行上下文
-- SplitRunner: 单 split 执行器
-- LocalExecutor/RayExecutor: 执行后端
-"""
-from .experiment_manager import ExperimentManager
-from .experiment_dataclasses import (
-    ExperimentConfig,
-    VisualizationConfig,
-    VisualizationRenderConfig,
-    ImportanceVizConfig,
-    MetricsVizConfig,
-    StatePolicyConfig,
-    SplitTask,
-    SplitResult,
-    ResourceRequest,
-    RollingState,
-    FeatureImportanceState,
-)
+from .configs import ExperimentConfig, StatePolicyConfig, ResourceRequest
+from .results import SplitTask, SplitResult
+from .states import RollingState, FeatureImportanceState
+from .report import ReportGenerator
 from .run_context import RunContext
-from .split_runner import SplitRunner
-from .executor import LocalExecutor, RayExecutor
-from .task_dag import (
-    DynamicTaskDAG,
-    DagSubmission,
-    build_execution_plan,
-    build_bucket_execution_plan,
-    quarter_bucket_fn,
-    month_bucket_fn,
-)
+from .task_dag import DynamicTaskDAG, DagSubmission
+
+
+def __getattr__(name):
+    """Lazy imports to avoid circular dependencies."""
+    if name == "ExperimentManager":
+        from .experiment_manager import ExperimentManager
+        return ExperimentManager
+    if name == "SplitRunner":
+        from .split_runner import SplitRunner
+        return SplitRunner
+    if name == "LocalExecutor":
+        from .executor import LocalExecutor
+        return LocalExecutor
+    if name == "RayExecutor":
+        from .executor import RayExecutor
+        return RayExecutor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "ExperimentManager",
     "ExperimentConfig",
-    "VisualizationConfig",
-    "VisualizationRenderConfig",
-    "ImportanceVizConfig",
-    "MetricsVizConfig",
     "StatePolicyConfig",
+    "ResourceRequest",
     "SplitTask",
     "SplitResult",
-    "ResourceRequest",
     "RollingState",
     "FeatureImportanceState",
+    "ReportGenerator",
     "RunContext",
     "SplitRunner",
     "LocalExecutor",
     "RayExecutor",
     "DynamicTaskDAG",
     "DagSubmission",
-    "build_execution_plan",
-    "build_bucket_execution_plan",
-    "quarter_bucket_fn",
-    "month_bucket_fn",
 ]

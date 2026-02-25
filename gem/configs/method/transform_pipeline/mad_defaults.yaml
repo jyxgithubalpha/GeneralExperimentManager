@@ -1,0 +1,26 @@
+# MAD Transform Pipeline - Robust preprocessing using Median/MAD
+# Reference: prepare_data function from model_XGBoost.py
+_target_: gem.method.BaseTransformPipeline
+transforms:
+  # 1. Filter out date groups with too few samples
+  - _target_: gem.method.MinSampleFilterTransform
+    min_samples: 5
+
+  # 2. Fill NaN with per-date median
+  - _target_: gem.method.FillNaNTransform
+    method: median
+    per_date: true
+    target: X
+    value: 0.0
+
+  # 3. MAD standardize features (per-date, robust to outliers)
+  - _target_: gem.method.MADStandardizeTransform
+    target: X
+    eps: 1e-6
+    per_date: true
+
+  # 4. Standardize labels (per-date, mean/std)
+  - _target_: gem.method.StandardizeTransform
+    target: y
+    eps: 1e-6
+    per_date: true

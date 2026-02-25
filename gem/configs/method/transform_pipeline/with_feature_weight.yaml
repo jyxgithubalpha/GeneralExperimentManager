@@ -1,0 +1,41 @@
+# Transform pipeline with feature importance weighting
+# Feature weights are passed from RollingState.to_transform_context()
+# via FeatureImportanceState which stores EMA of feature importance
+#
+# Usage: In experiment config, set state_policy.mode to "per_split" or "bucket"
+# to enable feature importance EMA tracking, then the weights will be
+# automatically passed to FeatureWeightTransform via context.
+
+_target_: gem.method.BaseTransformPipeline
+transforms:
+  - _target_: gem.method.FillNaNTransform
+    value: 0.0
+    method: constant
+
+  - _target_: gem.method.WinsorizeTransform
+    target: X
+    lower: 0.01
+    upper: 0.99
+    per_date: true
+
+  - _target_: gem.method.StandardizeTransform
+    target: both
+    eps: 1e-8
+    per_date: true
+
+  # Feature weighting transform - applies feature importance weights
+  # Placed after standardization to weight normalized features
+  - _target_: gem.method.FeatureWeightTransform
+    # method options:
+    #   - multiply: X * weights (direct weighting)
+    #   - sqrt_multiply: X * sqrt(weights) (softer weighting, reduces extreme differences)
+    #   - rank_weight: X * rank_normalized_weights (rank-based, robust to outliers)
+    #   - softmax: X * softmax(weights/temperature) * n_features (probability-like weighting)
+    #   - select_topk: Keep only top-k important features (feature selection)
+    method: sqrt_multiply
+    # topk: 100           # Only for select_topk: number of features to keep
+    # temperature: 1.0    # Only for softmax: lower = sharper distribution
+    # min_weight: 0.1     # Minimum weight value (prevents zeroing out features)
+    # normalize: true     # Normalize weights to sum to n_features (preserves scale)
+    fallback: skip        # Options: uniform, ones, skip (when no weights in context)
+    context_key: feature_weights  # Key to read weights from context

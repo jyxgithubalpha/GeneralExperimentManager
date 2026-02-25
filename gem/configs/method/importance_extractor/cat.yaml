@@ -1,2 +1,2 @@
-_target_: gem.method.cat.CatBoostImportanceExtractor
+_target_: gem.method.gbdt.GBDTImportanceExtractor
 normalize: true
